@@ -3,7 +3,31 @@
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from repoize.analyzer.quality_analyzer import analyze_code_quality
+
+
+def test_quality_tools_from_bom_and_inline_toml(tmp_path):
+    """带 BOM 的内联工具表与常规配置节等价。"""
+    content = "[tool]\nruff = {}\nmypy = {}\npytest = {ini_options = {}}\n"
+    (tmp_path / "pyproject.toml").write_text(content, encoding="utf-8-sig")
+    assert analyze_code_quality(tmp_path).quality_tools_found == ["mypy", "pytest", "ruff"]
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "[tool.ruff]\nline-length = ",
+        'tool = ["ruff"]',
+        '[tool]\nruff = "invalid"\nmypy = false',
+        '# [tool.ruff]\n[project]\ndescription = "[tool.mypy]"',
+    ],
+)
+def test_invalid_pyproject_does_not_report_quality_tools(tmp_path, content):
+    """错误结构和注释都不算工具配置。"""
+    (tmp_path / "pyproject.toml").write_text(content, encoding="utf-8")
+    assert analyze_code_quality(tmp_path).quality_tools_found == []
 
 
 def test_analyze_code_quality_empty_project():

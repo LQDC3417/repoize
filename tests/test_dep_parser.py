@@ -1,7 +1,75 @@
 """依赖解析器测试"""
 
+from pathlib import Path
+
+import pytest
+
 from repoize.analyzer.dep_parser import parse_dependencies
 from repoize.analyzer.language_profiles import get_language_profile
+
+
+def test_pyproject_toml_literals_extras_and_comments(tmp_path):
+    """保留数组里的真实依赖，忽略注释并识别各种需求写法。"""
+    content = """[project] # 项目配置
+dependencies = [
+    'requests[socks]>=2.0', # "comment-package"
+    'importlib-metadata; python_version < "3.11"',
+    "demo-pkg @ https://example.com/demo.whl#sha256=abc",
+    "rich>=13.0",
+]
+[project.optional-dependencies] # 所有可选组沿用开发依赖分类
+test = ['pytest>=7', 'pytest-cov']
+docs = ['sphinx']
+"""
+    (tmp_path / "pyproject.toml").write_text(content, encoding="utf-8-sig")
+    deps = parse_dependencies(tmp_path)
+    assert [(dep.name, dep.dev, dep.version_spec) for dep in deps] == [
+        ("requests", False, ""),
+        ("importlib-metadata", False, ""),
+        ("demo-pkg", False, ""),
+        ("rich", False, ""),
+        ("pytest", True, ""),
+        ("pytest-cov", True, ""),
+        ("sphinx", True, ""),
+    ]
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        '[project]\ndependencies = ["click"',
+        'project = "invalid"',
+        '[project]\ndependencies = "click"\noptional-dependencies = 3',
+        '[project]\ndependencies = [42, {name = "click"}]\noptional-dependencies = {dev = "pytest"}',
+        '[project]\ndependencies = []\n[project.optional-dependencies]\ndev = {name = "pytest"}',
+    ],
+)
+def test_pyproject_invalid_toml_or_dependency_shapes(tmp_path, content):
+    """语法错误或错误类型应安全忽略。"""
+    (tmp_path / "pyproject.toml").write_text(content, encoding="utf-8")
+    assert parse_dependencies(tmp_path) == []
+
+
+@pytest.mark.parametrize("content", [None, b"\xff\xfe"])
+def test_pyproject_unreadable_input(tmp_path, content):
+    """目录和非 UTF-8 文件不能中断分析。"""
+    path = tmp_path / "pyproject.toml"
+    if content is None:
+        path.mkdir()
+    else:
+        path.write_bytes(content)
+    assert parse_dependencies(tmp_path) == []
+
+
+def test_pyproject_permission_error(tmp_path, monkeypatch):
+    """文件存在但读取被拒绝时返回空依赖。"""
+    (tmp_path / "pyproject.toml").write_text("[project]", encoding="utf-8")
+
+    def denied_read(*args, **kwargs):
+        raise PermissionError("拒绝读取")
+
+    monkeypatch.setattr(Path, "read_text", denied_read)
+    assert parse_dependencies(tmp_path) == []
 
 
 def test_parse_pyproject(tmp_path):

@@ -313,9 +313,67 @@ def test_mcp_deep_merge_preserves_nested_config(tmp_path):
     data = json.loads(output_path.read_text(encoding="utf-8"))
     # 用户的嵌套 env 应被保留
     assert data["mcpServers"]["git"]["env"]["GIT_DIR"] == "/custom/.git"
-    # 用户自定义的 args 也应保留（因为模板生成的 args 包含项目路径，是同一 key）
+    # 同名字段优先保留已有值，避免覆盖用户修改。
+    assert data["mcpServers"]["git"]["args"] == user_config["mcpServers"]["git"]["args"]
     # 模板新生成的 filesystem server 应被添加
     assert "filesystem" in data["mcpServers"]
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+@pytest.mark.parametrize("suffix", ["", "\n\n# 手写尾部\n"])
+def test_text_update_is_idempotent_and_preserves_manual_bytes(tmp_path, newline, suffix):
+    """重复更新不新增空行，区间外内容与换行保持不变。"""
+    gen = AgentsMdGenerator(_make_analysis())
+    prefix = "# 手写前言\n\n".replace("\n", newline)
+    suffix = suffix.replace("\n", newline)
+    managed = gen.generate_marked().removesuffix("\n").replace("\n", newline)
+    original = (prefix + managed + suffix).encode("utf-8")
+    output_path = tmp_path / gen.output_filename
+    output_path.write_bytes(original)
+
+    for _ in range(2):
+        gen.update(tmp_path)
+        assert output_path.read_bytes() == original
+
+
+def test_mcp_update_preserves_conflicting_user_values_and_warns(tmp_path, caplog):
+    """MCP 更新保留手写启动命令和参数，并提示冲突。"""
+    gen = McpConfigGenerator(_make_analysis())
+    output_path = tmp_path / gen.output_filename
+    output_path.parent.mkdir(parents=True)
+    original = {"mcpServers": {"git": {"command": "custom-git", "args": ["--custom"]}}}
+    output_path.write_text(json.dumps(original), encoding="utf-8")
+
+    gen.update(tmp_path)
+
+    data = json.loads(output_path.read_text(encoding="utf-8"))
+    assert data["mcpServers"]["git"] == original["mcpServers"]["git"]
+    assert "filesystem" in data["mcpServers"]
+    assert "保留已有值" in caplog.text
+
+
+@pytest.mark.parametrize("content", ["{invalid", "[]", "null"])
+def test_mcp_update_rejects_invalid_configuration_without_overwriting(tmp_path, content):
+    """无效 JSON 不应被当作未管理文件跳过，也不能被覆盖。"""
+    gen = McpConfigGenerator(_make_analysis())
+    output_path = tmp_path / gen.output_filename
+    output_path.parent.mkdir(parents=True)
+    output_path.write_text(content, encoding="utf-8")
+    original = output_path.read_bytes()
+
+    with pytest.raises(ValueError):
+        gen.update(tmp_path)
+
+    assert output_path.read_bytes() == original
+
+
+def test_text_update_propagates_read_errors(tmp_path):
+    """读取失败必须交给调用方报告，而非伪装成缺少 marker。"""
+    gen = AgentsMdGenerator(_make_analysis())
+    (tmp_path / gen.output_filename).mkdir()
+
+    with pytest.raises(OSError):
+        gen.update(tmp_path)
 
 
 def test_agents_md_contains_run_commands(tmp_path):

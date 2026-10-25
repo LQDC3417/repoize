@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - Unreleased
+
+### Fixed
+
+- JSON 标准输出不再混入状态提示，保留长路径和方括号等原始内容
+- init、generate、update 任一文件失败时返回非零状态，同时继续处理其他文件并汇总失败数
+- 无效 MCP JSON 和读取错误明确报告，不覆盖原文件
+- 重复文本更新不再累积空行，保留手写前后缀及 LF/CRLF 换行
+- 使用真实 TOML 解析依赖和工具配置，支持单引号、extras、多行数组和注释
+- Python console script 使用注册命令名，避免生成不可执行的模块命令
+- Python 3.10 通过条件依赖 tomli 保持 TOML 检测能力
+- HTML 格式尚未实现时返回明确错误，而非成功状态
+
+### Changed
+
+- JSON 模式的状态提示改写 stderr；MCP 更新优先保留已有值，冲突时给出提示
+- CI 增加 Windows 测试及隔离安装 wheel 后的完整 CLI 冒烟验证
+
 ## [0.1.0] - 2026-08-07
 
 ### Added

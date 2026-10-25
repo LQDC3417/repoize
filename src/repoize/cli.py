@@ -12,6 +12,7 @@ from .analyzer.project_analyzer import ProjectAnalysis, analyze_project
 from .reporter.health_report import print_health_report
 
 console = Console()
+error_console = Console(stderr=True)
 SCHEMA_PATH = Path(__file__).parent / "schemas" / "analysis.schema.json"
 
 # 生成器类型到模块的映射
@@ -82,22 +83,26 @@ def _check_existing_configs(analysis: ProjectAnalysis, force: bool) -> bool:
     return True
 
 
-def _generate_all_configs(project_path: Path, analysis: ProjectAnalysis, force: bool) -> tuple[list[str], list[str]]:
-    """生成所有配置文件。
+def _generate_all_configs(
+    project_path: Path, analysis: ProjectAnalysis, force: bool, file_types: tuple[str, ...] = ()
+) -> tuple[list[str], list[str], list[str]]:
+    """生成所有或指定的配置文件。
 
     Args:
         project_path: 项目根目录路径
         analysis: 项目分析结果
         force: 是否强制覆盖
+        file_types: 要生成的类型，空值表示全部
 
     Returns:
-        (生成的文件列表, 跳过的文件列表)
+        (生成的文件列表, 跳过的文件列表, 失败的文件列表)
     """
     console.print("\n[bold]⚙️  开始生成配置文件...[/bold]\n")
     generated: list[str] = []
     skipped: list[str] = []
+    failed: list[str] = []
 
-    for gen_name in GENERATOR_MAP:
+    for gen_name in file_types or tuple(GENERATOR_MAP):
         gen = _load_generator(gen_name, analysis)
         output_path = project_path / gen.output_filename
 
@@ -110,22 +115,29 @@ def _generate_all_configs(project_path: Path, analysis: ProjectAnalysis, force: 
             gen.write(project_path, force=force)
             generated.append(gen.output_filename)
             console.print(f"  [green]✅ 生成 {gen.output_filename}[/green]")
-        except (OSError, ValueError, FileExistsError) as e:
-            console.print(f"  [red]❌ 生成 {gen.output_filename} 失败: {e}[/red]")
+        except (OSError, ValueError) as e:
+            failed.append(gen.output_filename)
+            error_console.print(f"  [red]❌ 生成 {gen.output_filename} 失败: {e}[/red]")
 
-    return generated, skipped
+    return generated, skipped, failed
 
 
-def _print_generation_summary(generated: list[str], skipped: list[str]) -> None:
+def _print_generation_summary(generated: list[str], skipped: list[str], failed: list[str]) -> None:
     """打印生成结果汇总。
 
     Args:
         generated: 生成的文件列表
         skipped: 跳过的文件列表
+        failed: 失败的文件列表
     """
-    console.print(f"\n[bold green]✅ 完成！生成 {len(generated)} 个文件[/bold green]")
+    if failed:
+        error_console.print(f"\n[bold red]❌ 生成 {len(generated)} 个文件，失败 {len(failed)} 个[/bold red]")
+    else:
+        console.print(f"\n[bold green]✅ 完成！生成 {len(generated)} 个文件[/bold green]")
     if skipped:
         console.print(f"[yellow]⏭  跳过 {len(skipped)} 个已存在文件（使用 --force 覆盖）[/yellow]")
+    if failed:
+        raise click.exceptions.Exit(1)
 
 
 @click.group()
@@ -156,10 +168,10 @@ def init(path: str, force: bool, no_env: bool) -> None:
         return
 
     # 生成所有配置文件
-    generated, skipped = _generate_all_configs(project_path, analysis, force)
+    generated, skipped, failed = _generate_all_configs(project_path, analysis, force)
 
     # 打印汇总
-    _print_generation_summary(generated, skipped)
+    _print_generation_summary(generated, skipped, failed)
 
 
 @main.command()
@@ -175,8 +187,12 @@ def init(path: str, force: bool, no_env: bool) -> None:
 @click.option("--no-env", is_flag=True, help="跳过环境变量扫描")
 def analyze(path: str, output_format: str, output_file: str | None, no_env: bool) -> None:
     """分析项目结构并输出健康度报告（不生成文件）。"""
+    if output_format == "html":
+        raise click.BadParameter("HTML 格式暂不支持，请使用 terminal 或 json", param_hint="--format")
+
     project_path = Path(path).resolve()
-    console.print(f"[bold blue]📊 正在分析项目:[/bold blue] {project_path}")
+    status_console = error_console if output_format == "json" else console
+    status_console.print(f"[bold blue]📊 正在分析项目:[/bold blue] {project_path}")
 
     analysis = analyze_project(project_path, scan_env=not no_env)
 
@@ -184,15 +200,16 @@ def analyze(path: str, output_format: str, output_file: str | None, no_env: bool
         payload = json.dumps(analysis.to_dict(), ensure_ascii=False, indent=2)
         if output_file:
             output_path = Path(output_file)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(payload + "\n", encoding="utf-8-sig")
-            console.print(f"[green]✅ 已写入 {output_path}[/green]")
+            try:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(payload + "\n", encoding="utf-8-sig")
+            except OSError as e:
+                raise click.ClickException(f"写入 JSON 文件失败: {output_path}: {e}") from e
+            error_console.print(f"[green]✅ 已写入 {output_path}[/green]")
         else:
-            console.print(payload)
-    elif output_format == "terminal":
-        print_health_report(analysis, console)
+            click.echo(payload)
     else:
-        console.print("[yellow]⚠️  HTML 格式暂不支持，请使用 terminal 或 json[/yellow]")
+        print_health_report(analysis, console)
 
 
 @main.command()
@@ -220,19 +237,8 @@ def generate(path: str, file_types: tuple[str, ...], force: bool, no_env: bool) 
 
     analysis = analyze_project(project_path, scan_env=not no_env)
 
-    for gen_name in file_types:
-        gen = _load_generator(gen_name, analysis)
-        output_path = project_path / gen.output_filename
-
-        if output_path.exists() and not force:
-            console.print(f"  [yellow]⏭  跳过 {gen.output_filename}（已存在，使用 --force 覆盖）[/yellow]")
-            continue
-
-        try:
-            gen.write(project_path, force=force)
-            console.print(f"  [green]✅ 生成 {gen.output_filename}[/green]")
-        except (OSError, ValueError, FileExistsError) as e:
-            console.print(f"  [red]❌ 生成 {gen.output_filename} 失败: {e}[/red]")
+    generated, skipped, failed = _generate_all_configs(project_path, analysis, force, file_types)
+    _print_generation_summary(generated, skipped, failed)
 
 
 @main.command()
@@ -255,6 +261,7 @@ def update(path: str, file_types: tuple[str, ...], no_env: bool) -> None:
     updated: list[str] = []
     created: list[str] = []
     skipped: list[str] = []
+    failed: list[str] = []
 
     for gen_name in selected_types:
         gen = _load_generator(gen_name, analysis)
@@ -274,12 +281,20 @@ def update(path: str, file_types: tuple[str, ...], no_env: bool) -> None:
             else:
                 updated.append(gen.output_filename)
                 console.print(f"  [green]✅ 更新 {gen.output_filename}[/green]")
-        except (OSError, ValueError, UnicodeDecodeError) as e:
-            console.print(f"  [red]❌ 更新 {gen.output_filename} 失败: {e}[/red]")
+        except (OSError, ValueError) as e:
+            failed.append(gen.output_filename)
+            error_console.print(f"  [red]❌ 更新 {gen.output_filename} 失败: {e}[/red]")
 
-    console.print(f"\n[bold green]✅ 完成！更新 {len(updated)} 个，创建 {len(created)} 个文件[/bold green]")
+    if failed:
+        error_console.print(
+            f"\n[bold red]❌ 更新 {len(updated)} 个，创建 {len(created)} 个文件，失败 {len(failed)} 个[/bold red]"
+        )
+    else:
+        console.print(f"\n[bold green]✅ 完成！更新 {len(updated)} 个，创建 {len(created)} 个文件[/bold green]")
     if skipped:
         console.print(f"[yellow]⏭  跳过 {len(skipped)} 个未管理的已有文件[/yellow]")
+    if failed:
+        raise click.exceptions.Exit(1)
 
 
 @main.command()

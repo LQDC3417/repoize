@@ -21,11 +21,15 @@ jobs:
       - run: ruff format --check src/ tests/
 
   test:
-    name: Test (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    name: Test (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [ubuntu-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          - os: windows-latest
+            python-version: "3.13"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
@@ -34,3 +38,21 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: uv pip install --system -e ".[dev]"
       - run: python -m pytest tests/ -v --tb=short
+      - run: uv build --wheel
+      - run: uv venv .venv-smoke
+      - name: Install built wheel in isolated environment
+        shell: python
+        run: |
+          from pathlib import Path
+          import subprocess
+          wheel, = Path("dist").glob("*.whl")
+          subprocess.run(["uv", "pip", "install", "--python", ".venv-smoke", str(wheel)], check=True)
+      - name: Verify installed CLI and package resources
+        shell: python
+        run: |
+          import os
+          import subprocess
+          from pathlib import Path
+          executable = "Scripts/python.exe" if os.name == "nt" else "bin/python"
+          python = Path(".venv-smoke") / executable
+          subprocess.run([str(python), "tests/smoke_installed.py"], check=True)

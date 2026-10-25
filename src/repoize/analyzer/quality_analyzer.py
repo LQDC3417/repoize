@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .toml_utils import load_toml
+
 if TYPE_CHECKING:
     from .language_profiles import LanguageProfile
 
@@ -236,21 +238,14 @@ def _detect_tools_from_dependencies(
 
 def _detect_tools_from_pyproject(project_path: Path) -> set[str]:
     """从 pyproject.toml 配置节检测质量工具。"""
-    tools: set[str] = set()
-    try:
-        import tomllib
-
-        pyproject_path = project_path / "pyproject.toml"
-        if pyproject_path.exists():
-            with open(pyproject_path, "rb") as fh:
-                config = tomllib.load(fh)
-            tool_section = config.get("tool", {})
-            for tool_name in ["ruff", "mypy", "pytest", "black", "isort", "pylint", "flake8"]:
-                if tool_name in tool_section:
-                    tools.add(tool_name)
-    except Exception:
-        pass
-    return tools
+    tool_section = load_toml(project_path / "pyproject.toml").get("tool", {})
+    if not isinstance(tool_section, dict):
+        return set()
+    return {
+        tool_name
+        for tool_name in ["ruff", "mypy", "pytest", "black", "isort", "pylint", "flake8"]
+        if isinstance(tool_section.get(tool_name), dict)
+    }
 
 
 def _detect_tools_from_config_files(project_path: Path) -> set[str]:

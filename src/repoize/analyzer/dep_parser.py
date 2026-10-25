@@ -7,6 +7,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .toml_utils import load_toml
+
 if TYPE_CHECKING:
     from .language_profiles import LanguageProfile
 
@@ -99,113 +101,27 @@ def _build_parsers(
     return []
 
 
-def _extract_names_from_value(value: str) -> list[str]:
-    """从 TOML 值中提取包名。
-
-    支持单行: ["fastapi>=0.100", "uvicorn"]
-    和多行情况下的单个值: "fastapi>=0.100"
-    """
-    names: list[str] = []
-    for match in re.finditer(r'"([^"]+)"', value):
-        spec = match.group(1)
-        name = re.split(r"[>=<!~\[]", spec)[0].strip()
-        if name:
-            names.append(name)
-    return names
-
-
 def _parse_pyproject(filepath: Path) -> list[DepInfo]:
-    """解析 pyproject.toml 中的依赖。
-
-    支持单行和多行数组格式。
-    """
+    """解析项目依赖，所有可选依赖组沿用开发依赖分类。"""
     deps: list[DepInfo] = []
-    try:
-        content = filepath.read_text(encoding="utf-8")
-    except (UnicodeDecodeError, OSError):
+    project = load_toml(filepath).get("project", {})
+    if not isinstance(project, dict):
         return deps
 
-    lines = content.splitlines()
-    current_section = ""
-    i = 0
-
-    while i < len(lines):
-        line = lines[i].strip()
-
-        # 检测 section 头
-        if line.startswith("[") and line.endswith("]"):
-            current_section = line[1:-1].strip()
-            i += 1
+    groups = [(project.get("dependencies", []), False)]
+    optional = project.get("optional-dependencies", {})
+    if isinstance(optional, dict):
+        groups.extend((requirements, True) for requirements in optional.values())
+    for requirements, is_dev in groups:
+        if not isinstance(requirements, list):
             continue
-
-        # 检测依赖行
-        is_dev = _determine_dev_status(current_section, line)
-        if is_dev is None:
-            i += 1
-            continue
-
-        # 解析依赖数组
-        eq_pos = line.index("=")
-        value_part = line[eq_pos + 1 :].strip()
-        names, new_i = _parse_toml_array(lines, i, value_part)
-
-        # 添加到结果
-        for name in names:
-            deps.append(DepInfo(name, dev=is_dev))
-
-        i = new_i + 1
-
+        for spec in requirements:
+            if not isinstance(spec, str):
+                continue
+            match = re.match(r"\s*([A-Za-z0-9][A-Za-z0-9._-]*)(?=\s*(?:[<>=!~\[;@]|$))", spec)
+            if match:
+                deps.append(DepInfo(match.group(1), dev=is_dev))
     return deps
-
-
-def _determine_dev_status(section: str, line: str) -> bool | None:
-    """确定依赖是否为开发依赖。
-
-    Args:
-        section: 当前 TOML section
-        line: 当前行内容
-
-    Returns:
-        True 表示 dev 依赖，False 表示普通依赖，None 表示不是依赖行
-    """
-    if section == "project" and line.startswith("dependencies"):
-        return False
-    if section == "project.optional-dependencies" and "=" in line:
-        return True
-    return None
-
-
-def _parse_toml_array(lines: list[str], current_idx: int, value_part: str) -> tuple[list[str], int]:
-    """解析 TOML 数组，支持单行和多行格式。
-
-    Args:
-        lines: 所有行内容
-        current_idx: 当前行索引
-        value_part: 等号右边的值部分
-
-    Returns:
-        包名列表和最后处理的行索引
-    """
-    if value_part.startswith("["):
-        if value_part.endswith("]"):
-            # 单行数组: dependencies = ["fastapi", "uvicorn"]
-            names = _extract_names_from_value(value_part)
-            return names, current_idx
-        else:
-            # 多行数组: dependencies = [ 后面跟多行
-            accumulated = value_part
-            i = current_idx + 1
-            while i < len(lines):
-                next_line = lines[i].strip()
-                accumulated += " " + next_line
-                if "]" in next_line:
-                    break
-                i += 1
-            names = _extract_names_from_value(accumulated)
-            return names, i
-
-    # 非数组格式，返回空
-    return [], current_idx
 
 
 def _parse_requirements(filepath: Path) -> list[DepInfo]:

@@ -1,5 +1,6 @@
 """CLI 模块测试"""
 
+import json
 import tempfile
 from pathlib import Path
 
@@ -110,3 +111,86 @@ def test_check_command(runner, sample_project):
     result = runner.invoke(main, ["check", str(sample_project)])
     assert result.exit_code == 0
     assert "📊 项目健康度报告" in result.output
+
+
+def test_analyze_json_stdout_is_machine_readable(runner, sample_project):
+    """JSON 不混入状态文字，长路径和方括号保持原样。"""
+    project = sample_project / ("demo[bold]" + "x" * 90)
+    project.mkdir()
+    (project / "main.py").write_text("pass", encoding="utf-8")
+
+    result = runner.invoke(main, ["analyze", str(project), "--format", "json", "--no-env"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["project_name"] == project.name
+    assert data["project_path"] == str(project.resolve())
+    assert "正在分析项目" in result.stderr
+
+
+def test_analyze_json_file_leaves_stdout_empty(runner, sample_project, tmp_path):
+    """写入 JSON 文件时，全部状态信息发送到 stderr。"""
+    output = tmp_path / "report.json"
+
+    result = runner.invoke(
+        main, ["analyze", str(sample_project), "--format", "json", "--output", str(output), "--no-env"]
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout == ""
+    assert json.loads(output.read_text(encoding="utf-8-sig"))["project_name"] == sample_project.name
+    assert "已写入" in result.stderr
+
+
+@pytest.mark.parametrize("command", ["init", "generate", "update"])
+def test_write_failure_returns_error_and_continues(runner, sample_project, command):
+    """一个文件写入失败，不阻止其他文件，但最终返回失败。"""
+    (sample_project / "AGENTS.md").mkdir()
+    args = [command, str(sample_project), "--no-env"]
+    if command in {"init", "generate"}:
+        args.append("--force")
+    if command != "init":
+        args.extend(["--type", "agents", "--type", "claude"])
+
+    result = runner.invoke(main, args)
+
+    assert result.exit_code == 1
+    assert "AGENTS.md" in result.stderr
+    assert "失败 1" in result.output
+    assert (sample_project / "CLAUDE.md").is_file()
+
+
+def test_update_invalid_json_returns_error_without_overwriting(runner, sample_project):
+    """无效 MCP 配置作为失败报告，保留原文件并继续更新。"""
+    output = sample_project / ".claude" / "mcp.json"
+    output.parent.mkdir()
+    output.write_text("{invalid", encoding="utf-8")
+
+    result = runner.invoke(main, ["update", str(sample_project), "--type", "mcp", "--type", "claude", "--no-env"])
+
+    assert result.exit_code == 1
+    assert "mcp.json" in result.stderr
+    assert output.read_text(encoding="utf-8") == "{invalid"
+    assert (sample_project / "CLAUDE.md").is_file()
+
+
+def test_analyze_unavailable_html_returns_error(runner, sample_project):
+    """尚未实现的格式不能返回成功。"""
+    result = runner.invoke(main, ["analyze", str(sample_project), "--format", "html", "--no-env"])
+
+    assert result.exit_code != 0
+    assert "HTML 格式暂不支持" in result.output
+
+
+def test_analyze_json_write_failure_is_reported(runner, sample_project):
+    """JSON 输出路径不可写时，返回清晰错误及非零状态。"""
+    blocker = sample_project / "blocked"
+    blocker.write_text("occupied", encoding="utf-8")
+
+    result = runner.invoke(
+        main,
+        ["analyze", str(sample_project), "--format", "json", "--output", str(blocker / "report.json"), "--no-env"],
+    )
+
+    assert result.exit_code == 1
+    assert "失败" in result.stderr

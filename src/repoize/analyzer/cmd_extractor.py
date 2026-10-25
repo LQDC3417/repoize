@@ -3,7 +3,9 @@
 import re
 from pathlib import Path
 
+from .dep_parser import _parse_pyproject
 from .language_profiles import LanguageProfile
+from .toml_utils import load_toml
 
 
 class CommandSet:
@@ -52,45 +54,51 @@ def extract_commands(
 def _extract_from_pyproject(project_path: Path, cmds: CommandSet):
     """从 pyproject.toml 提取命令。"""
     filepath = project_path / "pyproject.toml"
-    if not filepath.exists():
-        return
-
-    try:
-        content = filepath.read_text(encoding="utf-8")
-    except (UnicodeDecodeError, OSError):
-        return
+    config = load_toml(filepath)
+    tool = config.get("tool", {})
+    if not isinstance(tool, dict):
+        tool = {}
+    project = config.get("project", {})
+    if not isinstance(project, dict):
+        project = {}
+    poetry = tool.get("poetry", {})
+    if not isinstance(poetry, dict):
+        poetry = {}
 
     # 检测测试框架
-    if "pytest" in content or "testpaths" in content:
+    poetry_deps = [poetry.get("dependencies", {}), poetry.get("dev-dependencies", {})]
+    groups = poetry.get("group", {})
+    if isinstance(groups, dict):
+        poetry_deps.extend(group.get("dependencies", {}) for group in groups.values() if isinstance(group, dict))
+    if (
+        isinstance(tool.get("pytest"), dict)
+        or any(dep.name.lower() == "pytest" for dep in _parse_pyproject(filepath))
+        or any(isinstance(deps, dict) and "pytest" in deps for deps in poetry_deps)
+    ):
         cmds.test.append("pytest")
 
     # 检测 lint 工具
-    if "[tool.ruff" in content:
+    if isinstance(tool.get("ruff"), dict):
         cmds.lint.append("ruff check .")
         cmds.format.append("ruff format .")
-    if "[tool.mypy" in content:
+    if isinstance(tool.get("mypy"), dict):
         cmds.lint.append("mypy .")
-    if "[tool.flake8" in content:
+    if isinstance(tool.get("flake8"), dict):
         cmds.lint.append("flake8 .")
-    if "[tool.black" in content:
+    if isinstance(tool.get("black"), dict):
         cmds.format.append("black .")
-    if "[tool.isort" in content:
+    if isinstance(tool.get("isort"), dict):
         cmds.format.append("isort .")
 
-    # 提取 scripts
-    in_scripts = False
-    for line in content.splitlines():
-        stripped = line.strip()
-        if stripped == "[project.scripts]" or stripped == "[tool.poetry.scripts]":
-            in_scripts = True
-            continue
-        if stripped.startswith("[") and in_scripts:
-            in_scripts = False
-            continue
-        if in_scripts and "=" in stripped:
-            name = stripped.split("=")[0].strip()
-            if name:
-                cmds.run.append(f"python -m {name}")
+    # console script 的注册名就是可执行命令。
+    for section in (project, poetry):
+        scripts = section.get("scripts", {})
+        if isinstance(scripts, dict):
+            for name, entry in scripts.items():
+                if section is poetry and isinstance(entry, dict):
+                    entry = entry.get("reference")
+                if isinstance(entry, str) and entry and name not in cmds.run:
+                    cmds.run.append(name)
 
 
 def _extract_from_package_json(project_path: Path, cmds: CommandSet):

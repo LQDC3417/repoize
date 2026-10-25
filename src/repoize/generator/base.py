@@ -1,6 +1,7 @@
 """生成器基类"""
 
 import json
+import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from pathlib import Path
@@ -80,10 +81,7 @@ class BaseGenerator(ABC):
 
     def _update_text(self, output_path: Path) -> Path | None:
         """替换 managed marker 区间，保留区间外的手写内容。"""
-        try:
-            old_content = output_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            return None
+        old_content = output_path.read_bytes().decode("utf-8")
 
         if GENERATED_START not in old_content or GENERATED_END not in old_content:
             return None
@@ -92,21 +90,23 @@ class BaseGenerator(ABC):
         if GENERATED_END not in rest:
             return None
         suffix = rest.split(GENERATED_END, 1)[1]
-        output_path.write_text(prefix + self.generate_marked() + suffix, encoding="utf-8")
+        newline = "\r\n" if "\r\n" in rest else "\n"
+        # 结束标记后的换行属于手写区间，替换时不重复添加。
+        managed = self.generate_marked().removesuffix("\n").replace("\n", newline)
+        output_path.write_bytes((prefix + managed + suffix).encode("utf-8"))
         return output_path
 
     def _update_json(self, output_path: Path) -> Path | None:
         """合并 JSON 对象，保留已有但未生成的键。"""
-        try:
-            old_data = json.loads(output_path.read_text(encoding="utf-8"))
-            new_data = json.loads(self.generate())
-        except (OSError, UnicodeDecodeError, ValueError):
-            return None
+        old_data = json.loads(output_path.read_text(encoding="utf-8-sig"))
+        new_data = json.loads(self.generate())
 
         if not isinstance(old_data, dict) or not isinstance(new_data, dict):
-            return None
+            raise ValueError(f"JSON 配置必须是对象: {output_path}")
 
-        merged = _deep_merge(old_data, new_data)
+        merged = _deep_merge(new_data, old_data)
+        if merged != _deep_merge(old_data, new_data):
+            logging.getLogger(__name__).warning("JSON 配置存在冲突，保留已有值: %s", output_path)
 
         output_path.write_text(
             json.dumps(merged, ensure_ascii=False, indent=2) + "\n",

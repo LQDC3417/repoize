@@ -95,6 +95,13 @@ repoize analyze --no-env
 repoize init --force
 ```
 
+### 脚本集成与安全更新（v0.1.1）
+
+- `analyze --format json` 的标准输出只包含 JSON；状态提示写入标准错误。使用 `--output` 时，JSON 写入文件，标准输出为空。
+- `init`、`generate`、`update` 全部成功或正常跳过时返回 `0`；任一文件处理失败时返回 `1`，并继续处理其他文件。`html` 格式尚未实现，会返回参数错误。
+- `update` 保留文本生成区间外的手写内容和换行；相同分析结果重复更新不会增加空行。
+- MCP JSON 更新补充缺失项，已有同名字段优先保留，冲突时提示；无效 JSON 会报错并保留原文件。需要完全重新生成时，使用 `generate --type mcp --force`，这会覆盖整个 MCP 文件。
+
 ### 📁 示例输出
 
 运行 `repoize analyze` 后的输出示例：
@@ -196,6 +203,13 @@ repoize update
 ### 📄 License
 
 MIT License - see [LICENSE](LICENSE) for details
+
+### Scripting and safe updates (v0.1.1)
+
+- `analyze --format json` writes only JSON to stdout and status messages to stderr. With `--output`, the JSON is written to the file and stdout stays empty.
+- `init`, `generate`, and `update` return `0` on success or normal skips, and `1` if any file fails; other files are still processed. The unavailable `html` format returns a usage error.
+- Text updates preserve content and line endings outside the generated markers. Repeating an update with the same analysis does not add blank lines.
+- MCP updates add missing fields and keep existing values, warning on conflicts. Invalid JSON is reported without overwriting the file. To regenerate the entire MCP file, use `generate --type mcp --force`; this replaces its existing contents.
 
 ---
 
