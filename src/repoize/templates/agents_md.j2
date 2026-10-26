@@ -24,7 +24,7 @@
 {% for dep in dependencies %}{% if dep.dev %}- {{ dep.name }}{% if dep.version_spec %} ({{ dep.version_spec }}){% endif %}
 {% endif %}{% endfor %}
 
-{% if profile and profile.setup_commands %}## 快速开始
+{% if profile and profile.setup_commands %}## 快速开始（语言通用建议，使用前核对）
 
 {% for cmd in profile.setup_commands %}```bash
 {{ cmd }}
@@ -32,6 +32,8 @@
 {% endfor %}{% endif %}
 
 ## 常用命令
+
+以下包含语言通用建议，执行前请核对项目配置。
 
 {% if commands.build %}### 构建
 {% for cmd in commands.build %}```bash
@@ -55,18 +57,6 @@
 ```
 {% endfor %}{% endif %}
 
-## 开发环境
-
-{% if env_info.tools %}| 工具 | 版本 |
-|------|------|
-{% for name, version in env_info.tools %}| {{ name }} | {{ version }} |
-{% endfor %}{% endif %}{% if env_info.dev_env_vars %}
-
-### 环境变量
-
-{% for name, value in env_info.dev_env_vars.items() %}- `{{ name }}`: `{{ value }}`
-{% endfor %}{% endif %}
-
 ## 目录结构
 
 ```
@@ -75,7 +65,6 @@
 
 ## 编码规范
 
-- 代码注释使用中文，变量名和函数名使用英文
 - 遵循项目已有代码风格
 - 修改代码前先理解现有逻辑，保持最小化改动
-- 提交前运行 lint 和测试确保通过
+- 按项目实际配置选择验证命令

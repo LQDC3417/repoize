@@ -20,7 +20,7 @@
 {% for dep in dependencies %}{% if not dep.dev %}- {{ dep.name }}{% if dep.version_spec %} ({{ dep.version_spec }}){% endif %}
 {% endif %}{% endfor %}
 
-{% if profile and profile.setup_commands %}## 快速开始
+{% if profile and profile.setup_commands %}## 快速开始（语言通用建议，使用前核对）
 
 {% for cmd in profile.setup_commands %}```bash
 {{ cmd }}
@@ -56,27 +56,13 @@
 ```
 {% endfor %}{% endif %}
 
-## 开发环境
-
-{% if env_info.tools %}| 工具 | 版本 |
-|------|------|
-{% for name, version in env_info.tools %}| {{ name }} | {{ version }} |
-{% endfor %}{% endif %}{% if env_info.dev_env_vars %}
-
-### 环境变量
-
-{% for name, value in env_info.dev_env_vars.items() %}- `{{ name }}`: `{{ value }}`
-{% endfor %}{% endif %}
-
 ## 编码规范
 
-- 代码注释使用中文，变量名和函数名使用英文
 - 遵循项目已有代码风格，不要随意修改相邻代码的格式
 - 修改代码前先理解现有逻辑
 - 关键逻辑加注释，简单代码不加注释
-- 能用 50 行写完就不要写 200 行
 - 优先使用已有的库和工具
-- 提交前运行测试和代码检查
+- 命令包含语言通用建议，执行前核对项目实际配置
 
 ## 工作流程
 
@@ -84,4 +70,3 @@
 2. 改动最小化，不碰无关文件和逻辑
 3. 遇到不确定的地方先问用户确认
 4. 改完代码后主动跑相关测试验证
-5. 不主动 commit，等用户确认后再提交

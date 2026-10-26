@@ -43,21 +43,21 @@
 
 ## Task 1 — v0.1.2 兼容和安全基础
 
-- [ ] 回归先行：旧路径、新路径、旧包装 Skill、损坏 marker、BOM/CRLF、合成凭据、默认测试误报。
-- [ ] MCP 新路径 .mcp.json，内容 {"mcpServers": {}}，JSON 序列化生成。
-- [ ] Cursor 新路径 .cursor/rules/repoize.mdc；首部 description 和 alwaysApply:true，不猜 globs。
-- [ ] Skill 路径 .claude/skills/project-dev/SKILL.md，name:project-dev，删除无依据 license。
-- [ ] 完整文件渲染和仅 managed body 替换分离；更新不重复 header，原 frontmatter 保留并校验。
-- [ ] 仅一对顺序正确 marker 可更新；缺失视为不受管，重复/逆序/嵌套报错。
-- [ ] 原文件无效、不受管、是目录或指向项目外的链接时不覆盖。
-- [ ] 旧路径独存：该类型要求手动迁移，不创建副本；新旧 MCP 并存只处理新路径并告警；Cursor 并存阻断该类型。
-- [ ] JSON 保留未知字段和完整现有服务器定义，不拼接不同同名服务器的字段。
-- [ ] 默认环境关闭；显式 include-env 仅平台和排序后的工具版本；共享模板不写本机环境。
-- [ ] has_tests 不由 profile 建议命令证明；有依据才生成测试结论。
-- [ ] 移除跨项目模板的作者偏好、无依据授权和强制命令。
-- [ ] 报告不把存在性分数当有效性或真实质量；保留 v1 JSON 兼容字段。
-- [ ] 更新相关测试、安装冒烟、版本 0.1.2、CHANGELOG；pytest/Ruff/隔离包验证。
-- [ ] Specification review -> 修复 -> quality review -> 修复 -> 本地阶段提交。
+- [x] 回归先行：旧路径、新路径、旧包装 Skill、损坏 marker、BOM/CRLF、合成凭据、默认测试误报。
+- [x] MCP 新路径 .mcp.json，内容 {"mcpServers": {}}，JSON 序列化生成。
+- [x] Cursor 新路径 .cursor/rules/repoize.mdc；首部 description 和 alwaysApply:true，不猜 globs。
+- [x] Skill 路径 .claude/skills/project-dev/SKILL.md，name:project-dev，删除无依据 license。
+- [x] 完整文件渲染和仅 managed body 替换分离；更新不重复 header，原 frontmatter 保留并校验。
+- [x] 仅一对顺序正确 marker 可更新；缺失视为不受管，重复/逆序/嵌套报错。
+- [x] 原文件无效、不受管、是目录或指向项目外的链接时不覆盖。
+- [x] 旧路径独存：该类型要求手动迁移，不创建副本；新旧 MCP 并存只处理新路径并告警；Cursor 并存阻断该类型。
+- [x] JSON 保留未知字段和完整现有服务器定义，不拼接不同同名服务器的字段。
+- [x] 默认环境关闭；显式 include-env 仅平台和排序后的工具版本；共享模板不写本机环境。
+- [x] has_tests 不由 profile 建议命令证明；有依据才生成测试结论。
+- [x] 移除跨项目模板的作者偏好、无依据授权和强制命令。
+- [x] 报告不把存在性分数当有效性或真实质量；保留 v1 JSON 兼容字段。
+- [x] 更新相关测试、安装冒烟、版本 0.1.2、CHANGELOG；pytest/Ruff/隔离包验证。
+- [x] Specification review -> 修复 -> quality review -> 修复 -> 本地阶段提交。
 
 ## Task 2 — 命令证据与只读 doctor
 
@@ -113,3 +113,6 @@
 ## 执行记录
 
 - 2026-10-26：隔离 worktree codex/repoize-roadmap 建立；基线 139 tests passed，Ruff check/format 通过。
+- Task 1：实现者首批 44 RED → GREEN；主线程复验 218 tests passed、Ruff check/format、diff check 通过；构建 v0.1.2 wheel，在源码外的独立安装环境通过 smoke。规范与质量审查进行中。
+
+- Task 1 收尾：规范与质量审查均 APPROVED；质量修复后主线程复验 234 tests passed，Ruff/diff 通过；依赖目录与外部链接测试误报、JUnit 漏报均已修复。

@@ -42,8 +42,9 @@ def test_scan_environment():
     assert isinstance(info, EnvInfo)
     assert info.system  # 应有系统信息
     assert info.arch  # 应有架构信息
-    # 至少 PATH 应该被检测到
-    assert "PATH" in info.dev_env_vars
+    assert info.dev_env_vars == {}
+    assert info.shell == ""
+    assert info.tools == sorted(info.tools)
 
 
 def test_scan_environment_tools():
@@ -54,9 +55,6 @@ def test_scan_environment_tools():
 
 
 def test_env_info_path_entries():
-    """测试 PATH 条目解析。"""
+    """环境摘要不收集 PATH 条目。"""
     info = scan_environment()
-    assert len(info.path_entries) > 0
-    # 不应包含敏感路径
-    for entry in info.path_entries:
-        assert _is_sensitive(entry) is False
+    assert info.path_entries == []

@@ -10,6 +10,7 @@ AGENT_CONFIGS = {
     ".github/copilot-instructions.md": "copilot",
     ".claude/settings.json": "claude_code",
     ".claude/mcp.json": "mcp_claude",
+    ".mcp.json": "mcp_claude",
     "mcp.json": "mcp_generic",
     "claude_desktop_config.json": "mcp_desktop",
     "SKILL.md": "skill",
@@ -54,7 +55,7 @@ def scan_existing_configs(project_path: Path) -> list[ConfigStatus]:
             ConfigStatus(
                 name=filename,
                 config_type=config_type,
-                exists=filepath.exists(),
+                exists=filepath.is_file(),
                 path=filepath,
             )
         )
@@ -63,6 +64,8 @@ def scan_existing_configs(project_path: Path) -> list[ConfigStatus]:
     claude_skills_dir = project_path / ".claude" / "skills"
     if claude_skills_dir.is_dir():
         for skill_file in claude_skills_dir.rglob("SKILL.md"):
+            if not skill_file.is_file():
+                continue
             rel = skill_file.relative_to(project_path)
             results.append(
                 ConfigStatus(
@@ -73,6 +76,11 @@ def scan_existing_configs(project_path: Path) -> list[ConfigStatus]:
                 )
             )
 
+    cursor_rules_dir = project_path / ".cursor" / "rules"
+    if cursor_rules_dir.is_dir():
+        for rule_file in sorted(cursor_rules_dir.rglob("*.mdc")):
+            if rule_file.is_file():
+                results.append(ConfigStatus(str(rule_file.relative_to(project_path)), "cursorrules", True, rule_file))
     return results
 
 

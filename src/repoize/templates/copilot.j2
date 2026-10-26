@@ -11,23 +11,21 @@
 {% endif %}{% if commands.format %}- 格式化: `{{ commands.format[0] }}`
 {% endif %}
 
-{% if profile and profile.setup_commands %}## 快速开始
+{% if profile and profile.setup_commands %}## 快速开始（语言通用建议，使用前核对）
 
 {% for cmd in profile.setup_commands %}- `{{ cmd }}`
 {% endfor %}{% endif %}
 
 ## 编码规范
 
-- 代码注释使用中文，变量名和函数名使用英文
 - 遵循项目已有代码风格
 - 修改代码前先理解现有逻辑
 - 关键逻辑加注释，简单代码不加注释
-- 能用 50 行写完就不要写 200 行
 - 优先使用已有的库和工具
 
-## 提交前检查
+## 候选检查（使用前核对项目配置）
 
-{% if commands.lint %}1. 运行 `{{ commands.lint[0] }}` 确保代码检查通过
-{% endif %}{% if commands.test %}2. 运行 `{{ commands.test[0] }}` 确保测试通过
-{% endif %}{% if commands.format %}3. 运行 `{{ commands.format[0] }}` 确保格式统一
+{% if commands.lint %}1. 检查: `{{ commands.lint[0] }}`
+{% endif %}{% if commands.test %}2. 测试: `{{ commands.test[0] }}`
+{% endif %}{% if commands.format %}3. 格式: `{{ commands.format[0] }}`
 {% endif %}

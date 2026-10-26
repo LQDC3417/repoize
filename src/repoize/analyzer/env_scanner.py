@@ -1,7 +1,7 @@
 """环境变量扫描器 — 提取开发相关的环境信息"""
 
-import os
 import platform
+import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -155,41 +155,20 @@ def _run_tool_check(tool_name: str, cmd: list[str], use_stderr: bool = False) ->
         if any(kw in lower for kw in ["not recognized", "not found", "no such", "error"]):
             return tool_name, None
 
-        return tool_name, first_line
+        # 只提取版本号，pip 等工具的原始输出可能带本机安装目录。
+        version = re.search(r"\b\d+(?:\.\d+)+(?:[a-zA-Z0-9.+-]*)", first_line)
+        return tool_name, version.group(0) if version else None
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         return tool_name, None
 
 
 def scan_environment() -> EnvInfo:
-    """扫描当前开发环境，返回环境信息。"""
+    """只扫描平台和工具版本，不收集环境变量值或 PATH。"""
     info = EnvInfo()
 
     # 系统信息
     info.system = f"{platform.system()} {platform.release()}"
     info.arch = platform.machine()
-    info.shell = os.environ.get("SHELL", os.environ.get("COMSPEC", ""))
-
-    # 开发相关环境变量
-    for name, value in os.environ.items():
-        if _is_sensitive(name):
-            continue
-        if _is_dev_related(name):
-            if len(value) > 200:
-                value = value[:200] + "..."
-            info.dev_env_vars[name] = value
-
-    # PATH 条目
-    path_str = os.environ.get("PATH", "")
-    path_sep = ";" if platform.system() == "Windows" else ":"
-    seen_paths: set[str] = set()
-    for entry in path_str.split(path_sep):
-        entry = entry.strip()
-        if not entry:
-            continue
-        normalized = entry.replace("\\", "/").rstrip("/")
-        if normalized not in seen_paths and not _is_sensitive(normalized):
-            seen_paths.add(normalized)
-            info.path_entries.append(entry)
 
     # 工具版本检测（并行执行）
     with ThreadPoolExecutor(max_workers=6) as executor:
@@ -203,4 +182,5 @@ def scan_environment() -> EnvInfo:
             if version:
                 info.tools.append((tool_name, version))
 
+    info.tools.sort()
     return info

@@ -87,7 +87,9 @@ def test_print_health_report_code_quality():
     print_health_report(analysis, console)
 
     output = console.export_text()
-    assert "优秀" in output
+    assert "工程配置参考" in output
+    assert "85/100" in output
+    assert "优秀" not in output
     assert "85/100" in output
 
 

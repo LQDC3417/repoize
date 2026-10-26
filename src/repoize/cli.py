@@ -10,6 +10,7 @@ from rich.prompt import Confirm
 
 from .analyzer.project_analyzer import ProjectAnalysis, analyze_project
 from .reporter.health_report import print_health_report
+from .targets import legacy_decision, safe_output_path
 
 console = Console()
 error_console = Console(stderr=True)
@@ -72,6 +73,16 @@ def _check_existing_configs(analysis: ProjectAnalysis, force: bool) -> bool:
     Returns:
         True 表示继续执行，False 表示取消
     """
+    # 迁移或安全错误必须按类型汇总，不能被交互确认掩盖。
+    for gen_name in GENERATOR_MAP:
+        gen = _load_generator(gen_name, analysis)
+        try:
+            output = safe_output_path(analysis.project_path, gen.output_filename)
+            if legacy_decision(analysis.project_path, gen.output_filename):
+                return True
+            gen.validate_existing(output)
+        except (OSError, ValueError):
+            return True
     existing = [c for c in analysis.existing_configs if c.exists]
     if existing and not force:
         console.print(f"[yellow]⚠️  检测到 {len(existing)} 个已有配置文件。[/yellow]")
@@ -104,14 +115,16 @@ def _generate_all_configs(
 
     for gen_name in file_types or tuple(GENERATOR_MAP):
         gen = _load_generator(gen_name, analysis)
-        output_path = project_path / gen.output_filename
-
-        if output_path.exists() and not force:
-            skipped.append(gen.output_filename)
-            console.print(f"  [yellow]⏭  跳过 {gen.output_filename}（已存在）[/yellow]")
-            continue
-
         try:
+            output_path = safe_output_path(project_path, gen.output_filename)
+            warning = legacy_decision(project_path, gen.output_filename)
+            if warning:
+                error_console.print(f"  [yellow]⚠️  {warning}[/yellow]")
+            gen.validate_existing(output_path)
+            if output_path.exists() and not force:
+                skipped.append(gen.output_filename)
+                console.print(f"  [yellow]⏭  跳过 {gen.output_filename}（已存在）[/yellow]")
+                continue
             gen.write(project_path, force=force)
             generated.append(gen.output_filename)
             console.print(f"  [green]✅ 生成 {gen.output_filename}[/green]")
@@ -145,23 +158,23 @@ def _print_generation_summary(generated: list[str], skipped: list[str], failed: 
 def main() -> None:
     """repoize — 一条命令让任何项目对 AI Agent 友好。
 
-    自动生成 AGENTS.md、CLAUDE.md、.cursorrules、MCP 配置、Skill 文件，
+    自动生成 AGENTS.md、CLAUDE.md、Cursor .mdc 规则、MCP 配置、Skill 文件，
     让 Claude Code、Cursor、Copilot 等 AI 编程助手立即理解你的项目。
     """
     pass
 
 
 @main.command()
-@click.argument("path", default=".", type=click.Path(exists=True))
+@click.argument("path", default=".", type=click.Path(exists=True, file_okay=False))
 @click.option("--force", is_flag=True, help="覆盖已有配置文件")
 @click.option("--no-env", is_flag=True, help="跳过环境变量扫描")
 def init(path: str, force: bool, no_env: bool) -> None:
     """扫描项目并一键生成所有 Agent 配置文件。"""
-    project_path = Path(path).resolve()
+    project_path = Path(path).absolute()
     console.print(f"[bold blue]🔍 正在扫描项目:[/bold blue] {project_path}")
 
     # 分析项目并打印报告
-    analysis = _analyze_and_report(project_path, scan_env=not no_env)
+    analysis = _analyze_and_report(project_path, scan_env=False)
 
     # 检查已有配置
     if not _check_existing_configs(analysis, force):
@@ -175,7 +188,7 @@ def init(path: str, force: bool, no_env: bool) -> None:
 
 
 @main.command()
-@click.argument("path", default=".", type=click.Path(exists=True))
+@click.argument("path", default=".", type=click.Path(exists=True, file_okay=False))
 @click.option(
     "--format",
     "output_format",
@@ -185,8 +198,11 @@ def init(path: str, force: bool, no_env: bool) -> None:
 )
 @click.option("--output", "output_file", type=click.Path(dir_okay=False), default=None, help="JSON 输出文件路径")
 @click.option("--no-env", is_flag=True, help="跳过环境变量扫描")
-def analyze(path: str, output_format: str, output_file: str | None, no_env: bool) -> None:
+@click.option("--include-env", is_flag=True, help="仅收集平台与工具版本，不收集环境变量值")
+def analyze(path: str, output_format: str, output_file: str | None, no_env: bool, include_env: bool) -> None:
     """分析项目结构并输出健康度报告（不生成文件）。"""
+    if include_env and no_env:
+        raise click.UsageError("--include-env 与 --no-env 不能同时使用")
     if output_format == "html":
         raise click.BadParameter("HTML 格式暂不支持，请使用 terminal 或 json", param_hint="--format")
 
@@ -194,7 +210,7 @@ def analyze(path: str, output_format: str, output_file: str | None, no_env: bool
     status_console = error_console if output_format == "json" else console
     status_console.print(f"[bold blue]📊 正在分析项目:[/bold blue] {project_path}")
 
-    analysis = analyze_project(project_path, scan_env=not no_env)
+    analysis = analyze_project(project_path, scan_env=include_env)
 
     if output_format == "json":
         payload = json.dumps(analysis.to_dict(), ensure_ascii=False, indent=2)
@@ -213,7 +229,7 @@ def analyze(path: str, output_format: str, output_file: str | None, no_env: bool
 
 
 @main.command()
-@click.argument("path", default=".", type=click.Path(exists=True))
+@click.argument("path", default=".", type=click.Path(exists=True, file_okay=False))
 @click.option(
     "--type",
     "file_types",
@@ -232,17 +248,17 @@ def generate(path: str, file_types: tuple[str, ...], force: bool, no_env: bool) 
             console.print(f"  - {name}")
         raise SystemExit(1)
 
-    project_path = Path(path).resolve()
+    project_path = Path(path).absolute()
     console.print(f"[bold blue]⚙️  正在生成配置:[/bold blue] {', '.join(file_types)}")
 
-    analysis = analyze_project(project_path, scan_env=not no_env)
+    analysis = analyze_project(project_path, scan_env=False)
 
     generated, skipped, failed = _generate_all_configs(project_path, analysis, force, file_types)
     _print_generation_summary(generated, skipped, failed)
 
 
 @main.command()
-@click.argument("path", default=".", type=click.Path(exists=True))
+@click.argument("path", default=".", type=click.Path(exists=True, file_okay=False))
 @click.option(
     "--type",
     "file_types",
@@ -253,10 +269,10 @@ def generate(path: str, file_types: tuple[str, ...], force: bool, no_env: bool) 
 @click.option("--no-env", is_flag=True, help="跳过环境变量扫描")
 def update(path: str, file_types: tuple[str, ...], no_env: bool) -> None:
     """增量更新已生成配置，保留手写内容。"""
-    project_path = Path(path).resolve()
+    project_path = Path(path).absolute()
     console.print(f"[bold blue]🔄 正在更新配置:[/bold blue] {project_path}")
 
-    analysis = analyze_project(project_path, scan_env=not no_env)
+    analysis = analyze_project(project_path, scan_env=False)
     selected_types = file_types or tuple(GENERATOR_MAP)
     updated: list[str] = []
     created: list[str] = []
@@ -268,6 +284,10 @@ def update(path: str, file_types: tuple[str, ...], no_env: bool) -> None:
         output_path = project_path / gen.output_filename
 
         try:
+            output_path = safe_output_path(project_path, gen.output_filename)
+            warning = legacy_decision(project_path, gen.output_filename)
+            if warning:
+                error_console.print(f"  [yellow]⚠️  {warning}[/yellow]")
             if not output_path.exists():
                 gen.write(project_path, force=True)
                 created.append(gen.output_filename)
@@ -316,7 +336,7 @@ def validate(json_file: str) -> None:
 
 
 @main.command()
-@click.argument("path", default=".", type=click.Path(exists=True))
+@click.argument("path", default=".", type=click.Path(exists=True, file_okay=False))
 def check(path: str) -> None:
     """检查项目是否已具备 Agent 友好配置。"""
     project_path = Path(path).resolve()
@@ -328,7 +348,7 @@ def check(path: str) -> None:
     # 给出建议
     score = analysis.agent_ready_score
     if score >= 80:
-        console.print("[bold green]🎉 你的项目已经对 AI Agent 非常友好了！[/bold green]")
+        console.print("[bold green]配置覆盖较完整；分数不代表格式有效或客户端可加载。[/bold green]")
     elif score >= 40:
         console.print("[bold yellow]💡 建议运行 'repoize init' 补充缺失的配置文件。[/bold yellow]")
     else:

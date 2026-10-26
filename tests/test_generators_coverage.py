@@ -65,7 +65,7 @@ def test_cursorrules_generator():
         gen = CursorRulesGenerator(analysis)
 
         assert gen.name == ".cursorrules"
-        assert gen.output_filename == ".cursorrules"
+        assert gen.output_filename == ".cursor/rules/repoize.mdc"
 
         content = gen.generate()
         assert project_path.name in content or "Python" in content
@@ -81,7 +81,7 @@ def test_mcp_config_generator():
         gen = McpConfigGenerator(analysis)
 
         assert gen.name == "MCP 配置"
-        assert gen.output_filename == ".claude/mcp.json"
+        assert gen.output_filename == ".mcp.json"
 
         content = gen.generate()
         assert "mcpServers" in content

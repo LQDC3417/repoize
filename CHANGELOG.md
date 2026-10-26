@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - Unreleased
+
+### Changed
+
+- MCP 默认输出根目录 `.mcp.json`，仅包含空 `mcpServers`；不配置、安装或启动默认服务
+- Cursor 输出 `.cursor/rules/repoize.mdc`，保留 `cursorrules` CLI 类型名
+- Skill 固定使用 `project-dev` 名称，移除未经确认的 MIT 声明；Skill 与 Cursor frontmatter 位于首行，managed marker 仅包围正文
+- 所有命令默认关闭环境扫描；`analyze --include-env` 仅收集平台和排序的工具版本，不收集环境变量值、shell 路径或 PATH；`--no-env` 保持兼容
+- 生成模板不再包含本机环境信息、作者语言偏好或无依据的部署承诺；候选命令提示使用前核对
+- 人类报告将评分标为配置覆盖与工程配置参考，analysis JSON v1 字段结构保持不变
+
+### Fixed
+
+- 安全解析 YAML 并验证 Skill/Cursor 元数据，更新时逐字保留合法 frontmatter 与未知字段
+- 拒绝不完整、重复、逆序或嵌套 marker，保留手写前后缀、BOM、LF/CRLF；相同内容不写盘
+- 拒绝目录、符号链接、Windows junction 和项目外输出目标；`--force` 不绕过保护
+- MCP 增量更新保留未知 JSON 字段与完整服务器定义，避免拼接同名服务；`--force` 完整覆盖合法当前目标；无效 JSON 不写入
+- 统一 init/generate/update 的旧配置迁移决策：仅旧文件时失败；MCP 新旧并存仅处理新文件并告警，仍按生成跳过/force 覆盖/增量更新规则执行；Cursor 并存阻断；旧 Skill 包装格式要求手动迁移
+- 扫描识别新旧路径、递归 Cursor 规则与 Skill 文件，目录不再算配置文件，同类不重复加分
+- 测试检测不再把语言画像的建议命令或空测试目录当作实际测试证据
+
 ## [0.1.1] - Unreleased
 
 ### Fixed

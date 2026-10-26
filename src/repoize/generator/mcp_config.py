@@ -1,6 +1,8 @@
 """MCP Server 配置生成器"""
 
-from . import get_template_env
+import json
+
+from ..targets import MCP_TARGET
 from .base import BaseGenerator
 
 
@@ -15,17 +17,8 @@ class McpConfigGenerator(BaseGenerator):
     @property
     def output_filename(self) -> str:
         """输出文件名。"""
-        return ".claude/mcp.json"
+        return MCP_TARGET
 
     def generate(self) -> str:
         """生成文件内容。"""
-        env = get_template_env()
-        template = env.get_template("mcp_config.j2")
-
-        return template.render(
-            project_name=self.analysis.project_name,
-            primary_language=self.analysis.primary_language or "Unknown",
-            project_path=str(self.analysis.project_path).replace("\\", "/"),
-            profile=self.analysis.profile,
-            frameworks=self.analysis.frameworks,
-        )
+        return json.dumps({"mcpServers": {}}, ensure_ascii=False, indent=2) + "\n"

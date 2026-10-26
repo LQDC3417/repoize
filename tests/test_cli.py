@@ -162,14 +162,13 @@ def test_write_failure_returns_error_and_continues(runner, sample_project, comma
 
 def test_update_invalid_json_returns_error_without_overwriting(runner, sample_project):
     """无效 MCP 配置作为失败报告，保留原文件并继续更新。"""
-    output = sample_project / ".claude" / "mcp.json"
-    output.parent.mkdir()
+    output = sample_project / ".mcp.json"
     output.write_text("{invalid", encoding="utf-8")
 
     result = runner.invoke(main, ["update", str(sample_project), "--type", "mcp", "--type", "claude", "--no-env"])
 
     assert result.exit_code == 1
-    assert "mcp.json" in result.stderr
+    assert ".mcp.json" in result.stderr
     assert output.read_text(encoding="utf-8") == "{invalid"
     assert (sample_project / "CLAUDE.md").is_file()
 

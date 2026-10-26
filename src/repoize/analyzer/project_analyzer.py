@@ -1,5 +1,7 @@
 """主分析器 — 协调各子模块，输出完整项目分析结果"""
 
+import os
+import stat
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -139,29 +141,90 @@ class ProjectAnalysis:
         }
 
 
-def _detect_test_setup(project_path: Path, commands: CommandSet) -> tuple[bool, str | None]:
+def _detect_test_setup(project_path: Path, dependencies: list[DepInfo]) -> tuple[bool, str | None]:
     """检测项目的测试配置。
 
     Args:
         project_path: 项目根目录
-        commands: 提取的命令集
+        dependencies: 按项目语言解析的实际依赖
 
     Returns:
         (has_tests, test_framework) 元组
     """
-    # 1. 从命令中检测测试框架
-    if commands.test:
-        test_cmd = commands.test[0].lower()
+    # 只使用项目声明的命令，语言画像建议不能证明存在测试。
+    declared_commands = extract_commands(project_path)
+    test_commands = [
+        cmd
+        for cmd in declared_commands.test
+        if cmd == "pytest" or cmd.startswith(("make ", "npm run ", "composer run "))
+    ]
+    if test_commands:
+        test_cmd = test_commands[0].lower()
         for pattern, framework in _TEST_FRAMEWORK_PATTERNS:
             if pattern in test_cmd:
                 return True, framework
         return True, None
 
-    # 2. 检测测试目录
-    if (project_path / "tests").is_dir() or (project_path / "test").is_dir():
-        return True, None
+    if (project_path / "pytest.ini").is_file():
+        return True, "pytest"
+    test_tools = {
+        "pytest",
+        "jest",
+        "vitest",
+        "mocha",
+        "rspec",
+        "phpunit/phpunit",
+        "junit",
+        "junit:junit",
+        "org.junit.jupiter:junit-jupiter",
+        "org.junit.jupiter:junit-jupiter-api",
+    }
+    for dep in dependencies:
+        if dep.name.lower() in test_tools:
+            return True, dep.name
+    # 测试文件是证据；空目录本身不足以证明有测试。
+    patterns = (
+        "test_*.py",
+        "*_test.py",
+        "*_test.go",
+        "*.test.*",
+        "*.spec.*",
+        "*Test.java",
+        "*Tests.java",
+        "Test*.java",
+        "*TestCase.java",
+        "*_spec.rb",
+    )
+    root = project_path.resolve()
+    for current, directories, filenames in os.walk(project_path, followlinks=False):
+        current_path = Path(current)
+        directories[:] = [
+            name for name in directories if name not in IGNORE_DIRS and _is_project_entry(current_path / name, root)
+        ]
+        for name in filenames:
+            path = current_path / name
+            if not _is_project_entry(path, root) or not path.is_file():
+                continue
+            in_test_directory = path.relative_to(project_path).parts[0] in {"tests", "test"}
+            if any(path.match(pattern) for pattern in patterns) or (
+                in_test_directory and path.suffix in {".py", ".js", ".ts", ".go", ".rs", ".java", ".rb", ".php"}
+            ):
+                return True, None
 
     return False, None
+
+
+def _is_project_entry(path: Path, root: Path) -> bool:
+    """扫描只接受项目内的普通路径，跳过链接、junction 和不可读条目。"""
+    try:
+        metadata = path.lstat()
+        return (
+            not stat.S_ISLNK(metadata.st_mode)
+            and not getattr(metadata, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+            and path.resolve().is_relative_to(root)
+        )
+    except OSError:
+        return False
 
 
 def _detect_ci_config(project_path: Path) -> bool:
@@ -194,12 +257,12 @@ def _detect_ci_config(project_path: Path) -> bool:
     return False
 
 
-def analyze_project(project_path: Path, scan_env: bool = True) -> ProjectAnalysis:
+def analyze_project(project_path: Path, scan_env: bool = False) -> ProjectAnalysis:
     """执行完整的项目分析。
 
     Args:
         project_path: 项目根目录
-        scan_env: 是否扫描系统环境变量（默认 True）
+        scan_env: 是否收集平台和工具版本（默认 False，不收集环境变量值）
 
     Returns:
         项目分析结果
@@ -223,7 +286,7 @@ def analyze_project(project_path: Path, scan_env: bool = True) -> ProjectAnalysi
     env = scan_environment() if scan_env else EnvInfo()
 
     # 5. 测试和 CI 检测
-    has_tests, test_framework = _detect_test_setup(project_path, cmds)
+    has_tests, test_framework = _detect_test_setup(project_path, deps)
     has_ci = _detect_ci_config(project_path)
 
     # 6. 生成目录树
@@ -289,8 +352,11 @@ def _walk_tree(
     if depth >= max_depth:
         return
     try:
-        entries = sorted(current.iterdir(), key=lambda e: (not e.is_dir(), e.name.lower()))
-    except PermissionError:
+        entries = sorted(
+            (entry for entry in current.iterdir() if _is_project_entry(entry, current.resolve())),
+            key=lambda e: (not e.is_dir(), e.name.lower()),
+        )
+    except OSError:
         return
 
     visible = []

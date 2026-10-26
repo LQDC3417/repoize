@@ -11,9 +11,9 @@ from pathlib import Path
 OUTPUT_FILES = (
     "AGENTS.md",
     "CLAUDE.md",
-    ".cursorrules",
+    ".cursor/rules/repoize.mdc",
     ".github/copilot-instructions.md",
-    ".claude/mcp.json",
+    ".mcp.json",
     ".claude/skills/project-dev/SKILL.md",
 )
 
@@ -42,9 +42,16 @@ def main() -> None:
             )
 
         assert run("--version").stdout.strip().endswith(version("repoize"))
-        run("init", "--no-env")
+        run("init")
         assert all((project / name).is_file() for name in OUTPUT_FILES)
-        assert isinstance(json.loads((project / ".claude/mcp.json").read_text(encoding="utf-8")), dict)
+        assert json.loads((project / ".mcp.json").read_text(encoding="utf-8")) == {"mcpServers": {}}
+        assert not (project / ".claude/mcp.json").exists()
+        assert not (project / ".cursorrules").exists()
+        for name in (".cursor/rules/repoize.mdc", ".claude/skills/project-dev/SKILL.md"):
+            content = (project / name).read_text(encoding="utf-8")
+            assert content.startswith("---\n")
+            assert content.index("---", 3) < content.index("<!-- repoize:generated-start -->")
+        assert "name: project-dev\n" in (project / ".claude/skills/project-dev/SKILL.md").read_text(encoding="utf-8")
 
         result = run("analyze", "--format", "json", "--no-env")
         data = json.loads(result.stdout)

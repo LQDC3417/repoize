@@ -1,5 +1,6 @@
 """.cursorrules 生成器"""
 
+from ..targets import CURSOR_TARGET
 from . import get_template_env
 from .base import BaseGenerator
 
@@ -15,7 +16,7 @@ class CursorRulesGenerator(BaseGenerator):
     @property
     def output_filename(self) -> str:
         """输出文件名。"""
-        return ".cursorrules"
+        return CURSOR_TARGET
 
     def generate(self) -> str:
         """生成文件内容。"""

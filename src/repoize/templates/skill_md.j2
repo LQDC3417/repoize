@@ -1,13 +1,12 @@
 ---
-name: {{ project_name | lower | replace("_", "-") }}
+name: project-dev
 description: |-
-  项目 {{ project_name }} 的开发指南。包含构建、测试、部署的标准流程和编码规范。
-license: MIT
+  项目开发参考，包含检测到的项目信息与候选命令。
 ---
 
 # {{ project_name }} 开发指南
 
-## 快速开始
+## 快速开始（语言通用建议，使用前核对）
 
 {% if profile %}
 {% for cmd in profile.setup_commands %}```bash
@@ -24,11 +23,7 @@ license: MIT
 
 ## 编码规范
 
-1. 代码注释使用中文，变量名和函数名使用英文
-2. 遵循项目已有代码风格
-3. 修改代码前先理解现有逻辑
-4. 关键逻辑加注释，简单代码不加注释
-5. 能用 50 行写完就不要写 200 行
+遵循项目已有约定；以下命令包含语言通用建议，使用前请核对项目配置。
 
 ## 常用命令
 

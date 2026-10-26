@@ -56,11 +56,10 @@ def print_health_report(analysis: ProjectAnalysis, console: Console | None = Non
     else:
         style = "red"
 
-    console.print(f"\n[bold]Agent 就绪度:[/bold] [{style}]{label} ({score}/100)[/{style}]")
+    console.print(f"\n[bold]配置覆盖参考:[/bold] [{style}]{label} ({score}/100)[/{style}]")
 
     # 代码质量评分
     quality_score = analysis.code_quality_score
-    quality_label = analysis.code_quality_label
     if quality_score >= 80:
         quality_style = "green"
     elif quality_score >= 60:
@@ -68,7 +67,8 @@ def print_health_report(analysis: ProjectAnalysis, console: Console | None = Non
     else:
         quality_style = "red"
 
-    console.print(f"[bold]代码质量:[/bold] [{quality_style}]{quality_label} ({quality_score}/100)[/{quality_style}]")
+    console.print(f"[bold]工程配置参考:[/bold] [{quality_style}]{quality_score}/100[/{quality_style}]")
+    console.print("[dim]以上分数仅供参考，不验证格式有效性、代码质量或客户端加载情况。[/dim]")
 
     # 配置文件状态表
     table = Table(show_header=True, header_style="bold")

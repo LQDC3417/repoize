@@ -68,7 +68,7 @@ def test_cursorrules_generator():
     content = gen.generate()
     assert "Cursor Rules" in content
     assert "pytest" in content
-    assert gen.output_filename == ".cursorrules"
+    assert gen.output_filename == ".cursor/rules/repoize.mdc"
 
 
 def test_copilot_generator():
@@ -86,8 +86,8 @@ def test_mcp_config_generator():
     gen = McpConfigGenerator(analysis)
     content = gen.generate()
     assert "mcpServers" in content
-    assert "git" in content
-    assert gen.output_filename == ".claude/mcp.json"
+    assert json.loads(content) == {"mcpServers": {}}
+    assert gen.output_filename == ".mcp.json"
 
 
 def test_skill_md_generator():
@@ -197,7 +197,7 @@ def test_mcp_config_is_generic_for_non_python():
     analysis = analyze_project(fixture, scan_env=False)
     content = McpConfigGenerator(analysis).generate()
     assert "mcpServers" in content
-    assert "filesystem" in content
+    assert json.loads(content) == {"mcpServers": {}}
 
 
 def test_generator_write_adds_markers(tmp_path):
@@ -239,7 +239,7 @@ def test_generator_update_without_markers_skips(tmp_path):
 def test_mcp_update_preserves_extra_servers(tmp_path):
     """测试 JSON 更新保留用户自定义 MCP server。"""
     analysis = _make_analysis()
-    output_path = tmp_path / ".claude" / "mcp.json"
+    output_path = tmp_path / ".mcp.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         json.dumps({"mcpServers": {"custom": {"command": "echo", "args": []}}}),
@@ -249,9 +249,7 @@ def test_mcp_update_preserves_extra_servers(tmp_path):
     McpConfigGenerator(analysis).update(tmp_path)
 
     data = json.loads(output_path.read_text(encoding="utf-8"))
-    assert "custom" in data["mcpServers"]
-    assert "git" in data["mcpServers"]
-    assert "filesystem" in data["mcpServers"]
+    assert data == {"mcpServers": {"custom": {"command": "echo", "args": []}}}
 
 
 def test_agents_md_contains_dynamic_directory_tree(tmp_path):
@@ -287,10 +285,10 @@ def test_directory_tree_skips_ignored_dirs(tmp_path):
     assert ".git" not in tree
 
 
-def test_mcp_deep_merge_preserves_nested_config(tmp_path):
-    """测试 MCP JSON 更新时递归合并嵌套配置。"""
+def test_mcp_update_preserves_complete_nested_config(tmp_path):
+    """MCP 更新保留完整嵌套服务器配置。"""
     analysis = _make_analysis()
-    output_path = tmp_path / ".claude" / "mcp.json"
+    output_path = tmp_path / ".mcp.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # 用户自定义了一个带嵌套 env 的 server
@@ -315,8 +313,7 @@ def test_mcp_deep_merge_preserves_nested_config(tmp_path):
     assert data["mcpServers"]["git"]["env"]["GIT_DIR"] == "/custom/.git"
     # 同名字段优先保留已有值，避免覆盖用户修改。
     assert data["mcpServers"]["git"]["args"] == user_config["mcpServers"]["git"]["args"]
-    # 模板新生成的 filesystem server 应被添加
-    assert "filesystem" in data["mcpServers"]
+    assert data == user_config
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
@@ -336,11 +333,11 @@ def test_text_update_is_idempotent_and_preserves_manual_bytes(tmp_path, newline,
         assert output_path.read_bytes() == original
 
 
-def test_mcp_update_preserves_conflicting_user_values_and_warns(tmp_path, caplog):
-    """MCP 更新保留手写启动命令和参数，并提示冲突。"""
+def test_mcp_update_preserves_user_values_without_adding_servers(tmp_path):
+    """MCP 更新保留手写启动命令和参数，不新增默认服务。"""
     gen = McpConfigGenerator(_make_analysis())
     output_path = tmp_path / gen.output_filename
-    output_path.parent.mkdir(parents=True)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     original = {"mcpServers": {"git": {"command": "custom-git", "args": ["--custom"]}}}
     output_path.write_text(json.dumps(original), encoding="utf-8")
 
@@ -348,8 +345,7 @@ def test_mcp_update_preserves_conflicting_user_values_and_warns(tmp_path, caplog
 
     data = json.loads(output_path.read_text(encoding="utf-8"))
     assert data["mcpServers"]["git"] == original["mcpServers"]["git"]
-    assert "filesystem" in data["mcpServers"]
-    assert "保留已有值" in caplog.text
+    assert data == original
 
 
 @pytest.mark.parametrize("content", ["{invalid", "[]", "null"])
@@ -357,7 +353,7 @@ def test_mcp_update_rejects_invalid_configuration_without_overwriting(tmp_path, 
     """无效 JSON 不应被当作未管理文件跳过，也不能被覆盖。"""
     gen = McpConfigGenerator(_make_analysis())
     output_path = tmp_path / gen.output_filename
-    output_path.parent.mkdir(parents=True)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(content, encoding="utf-8")
     original = output_path.read_bytes()
 
