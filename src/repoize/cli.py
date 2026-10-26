@@ -355,5 +355,59 @@ def check(path: str) -> None:
         console.print("[bold red]🚀 建议运行 'repoize init' 一键生成所有配置文件。[/bold red]")
 
 
+@main.command(help="Check local configuration formats and command evidence without executing project commands.")
+@click.argument("path", default=".", type=click.Path(exists=True, file_okay=False))
+@click.option(
+    "--type",
+    "file_types",
+    multiple=True,
+    type=click.Choice(["agents", "claude", "cursor", "cursorrules", "copilot", "mcp", "skill"]),
+    help="Check only these configuration types; repeat to select several.",
+)
+@click.option(
+    "--format", "output_format", default="terminal", type=click.Choice(["terminal", "json"]), help="Output format."
+)
+@click.option("--strict", is_flag=True, help="Fail on warnings as well as errors.")
+def doctor(path: str, file_types: tuple[str, ...], output_format: str, strict: bool) -> None:
+    """只读检查项目配置及命令证据。"""
+    from .doctor import diagnose_project
+    from .targets import safe_project_entry
+
+    project_path = Path(path).absolute()
+    try:
+        if not safe_project_entry(project_path, project_path, strict=True):
+            raise click.BadParameter(
+                "Project path must be a regular directory without links or reparse points.", param_hint="path"
+            )
+        report = diagnose_project(project_path, file_types)
+    except (OSError, RuntimeError):
+        click.echo("Doctor could not complete the local inspection (runtime or filesystem error).", err=True)
+        raise click.exceptions.Exit(3) from None
+    if output_format == "json":
+        click.echo(json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        for finding in report["findings"]:
+            click.echo(
+                f"{finding['severity'].upper()} {finding['rule_id']} type={finding['type'] or 'project'} {finding['path'] or '-'}: {finding['message']}"
+            )
+            click.echo(f"  Evidence: {'; '.join(finding['evidence']) or '(none)'}")
+            click.echo(f"  Fix: {finding['suggestion']}")
+        if report["command_evidence"]:
+            click.echo("Command evidence:")
+            for command in report["command_evidence"]:
+                click.echo(f"  {command['category']}: {command['command']} (verification={command['verification']})")
+                for source in command["sources"]:
+                    click.echo(
+                        f"    kind={source['kind']} path={source['path'] or '-'} selector={source['selector'] or '-'}"
+                    )
+        counts = report["summary"]
+        click.echo(
+            f"Checked {counts['checked_files']} configuration file(s): {counts['errors']} error(s), {counts['warnings']} warning(s)."
+        )
+        click.echo("Local formats only; client loading, command execution, and network access were not checked.")
+    if report["summary"]["errors"] or (strict and report["summary"]["warnings"]):
+        raise click.exceptions.Exit(1)
+
+
 if __name__ == "__main__":
     main()

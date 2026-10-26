@@ -7,6 +7,28 @@ MCP_TARGET = ".mcp.json"
 CURSOR_TARGET = ".cursor/rules/repoize.mdc"
 
 
+def safe_project_entry(path: Path, project_path: Path, *, strict: bool = False) -> bool:
+    """读取和遍历前拒绝项目外路径及所有层级的链接或 reparse point。"""
+    root = Path(project_path).absolute()
+    path = Path(path).absolute()
+    try:
+        relative = path.relative_to(root)
+        for current in (root, *(root.joinpath(*relative.parts[:i]) for i in range(1, len(relative.parts) + 1))):
+            metadata = current.lstat()
+            if (
+                stat.S_ISLNK(metadata.st_mode)
+                or getattr(metadata, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+            ):
+                return False
+        return path.resolve().is_relative_to(root.resolve())
+    except (FileNotFoundError, ValueError):
+        return False
+    except OSError:
+        if strict:
+            raise
+        return False
+
+
 def safe_output_path(project_path: Path, filename: str) -> Path:
     """拒绝目录、链接、junction 和越出项目根目录的目标。"""
     root = Path(project_path).absolute()

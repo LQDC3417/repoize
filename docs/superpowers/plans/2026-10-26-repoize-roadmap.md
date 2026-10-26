@@ -61,14 +61,14 @@
 
 ## Task 2 — 命令证据与只读 doctor
 
-- [ ] CommandSet 增加内部证据，但 to_dict() 保持 v1 字符串数组。
-- [ ] 命令来源包括相对文件、selector、kind；全部 not_run，多来源去重。
-- [ ] 缺 dev extra 不声称 .[dev]；JS 优先 packageManager，其次唯一锁文件，冲突告警。
-- [ ] 保留旧分析的容错路径，doctor 区分文件缺失、语法错误、编码错误、权限错误。
-- [ ] 实现 CFG001–CFG007、UPD001、SRC001、CMD001–CMD002；稳定排序，内容不回显秘密值。
-- [ ] doctor 不启动子进程、不写文件、不扫描环境、不读取项目外配置。
-- [ ] 独立 doctor schema、纯 JSON stdout、进度 stderr、参数和退出码回归。
-- [ ] Specification review -> 修复 -> quality review -> 修复。
+- [x] CommandSet 增加内部证据，但 to_dict() 保持 v1 字符串数组。
+- [x] 命令来源包括相对文件、selector、kind；全部 not_run，多来源去重。
+- [x] 缺 dev extra 不声称 .[dev]；JS 优先 packageManager，其次唯一锁文件，冲突告警。
+- [x] 保留旧分析的容错路径，doctor 区分文件缺失、语法错误、编码错误、权限错误。
+- [x] 实现 CFG001–CFG007、UPD001、SRC001、CMD001–CMD002；稳定排序，内容不回显秘密值。
+- [x] doctor 不启动子进程、不写文件、不扫描环境、不读取项目外配置。
+- [x] 独立 doctor schema、纯 JSON stdout、进度 stderr、参数和退出码回归。
+- [x] Specification review -> 修复 -> quality review -> 修复。
 
 ## Task 3 — v0.2.0 最小默认与双语
 
@@ -116,3 +116,5 @@
 - Task 1：实现者首批 44 RED → GREEN；主线程复验 218 tests passed、Ruff check/format、diff check 通过；构建 v0.1.2 wheel，在源码外的独立安装环境通过 smoke。规范与质量审查进行中。
 
 - Task 1 收尾：规范与质量审查均 APPROVED；质量修复后主线程复验 234 tests passed，Ruff/diff 通过；依赖目录与外部链接测试误报、JUnit 漏报均已修复。
+
+- Task 2：命令来源与 doctor 完成，规范/质量审查均 APPROVED；主线程复验 331 tests passed，Ruff check/format、diff 通过。Python 3.10 曾复验该阶段 320 tests 通过；最终全功能仍需再次做跨版本安装验收。

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Repoize doctor report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["report_type", "schema_version", "selected_types", "findings", "command_evidence", "summary"],
+  "properties": {
+    "report_type": {"const": "doctor"},
+    "schema_version": {"const": 1},
+    "selected_types": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/configType"}},
+    "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "command_evidence": {"type": "array", "items": {"$ref": "#/$defs/commandEvidence"}},
+    "summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["errors", "warnings", "info", "checked_files"],
+      "properties": {
+        "errors": {"type": "integer", "minimum": 0},
+        "warnings": {"type": "integer", "minimum": 0},
+        "info": {"type": "integer", "minimum": 0},
+        "checked_files": {"type": "integer", "minimum": 0}
+      }
+    }
+  },
+  "$defs": {
+    "configType": {"enum": ["agents", "claude", "cursor", "copilot", "mcp", "skill"]},
+    "relativePath": {"type": ["string", "null"], "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!\\.\\.(?:/|$))(?!.*?/\\.\\.(?:/|$)).+$"},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "path", "selector"],
+      "properties": {
+        "kind": {"enum": ["declared", "inferred", "suggested"]},
+        "path": {"$ref": "#/$defs/relativePath"},
+        "selector": {"type": ["string", "null"]}
+      }
+    },
+    "commandEvidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["category", "command", "sources", "verification"],
+      "properties": {
+        "category": {"enum": ["setup", "build", "test", "lint", "format", "run"]},
+        "command": {"type": "string", "minLength": 1},
+        "sources": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/source"}},
+        "verification": {"const": "not_run"}
+      }
+    },
+    "finding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["rule_id", "severity", "type", "path", "message", "evidence", "suggestion"],
+      "properties": {
+        "rule_id": {"enum": ["CFG001", "CFG002", "CFG003", "CFG004", "CFG005", "CFG006", "CFG007", "UPD001", "SRC001", "CMD001", "CMD002"]},
+        "severity": {"enum": ["error", "warning", "info"]},
+        "type": {"anyOf": [{"$ref": "#/$defs/configType"}, {"type": "null"}]},
+        "path": {"$ref": "#/$defs/relativePath"},
+        "message": {"type": "string", "minLength": 1},
+        "evidence": {"type": "array", "items": {"type": "string"}},
+        "suggestion": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

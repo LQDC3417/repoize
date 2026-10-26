@@ -162,10 +162,12 @@ def _parse_package_json(filepath: Path) -> list[DepInfo]:
     except (UnicodeDecodeError, OSError, ValueError):
         return deps
 
-    for name in data.get("dependencies", {}):
-        deps.append(DepInfo(name))
-    for name in data.get("devDependencies", {}):
-        deps.append(DepInfo(name, dev=True))
+    if not isinstance(data, dict):
+        return deps
+    for key, dev in (("dependencies", False), ("devDependencies", True)):
+        declared = data.get(key, {})
+        if isinstance(declared, dict):
+            deps.extend(DepInfo(name, dev=dev) for name in declared)
 
     return deps
 
@@ -297,8 +299,10 @@ def _parse_composer_json(filepath: Path) -> list[DepInfo]:
         return []
 
     deps: list[DepInfo] = []
-    for name in data.get("require", {}):
-        deps.append(DepInfo(name))
-    for name in data.get("require-dev", {}):
-        deps.append(DepInfo(name, dev=True))
+    if not isinstance(data, dict):
+        return deps
+    for key, dev in (("require", False), ("require-dev", True)):
+        declared = data.get(key, {})
+        if isinstance(declared, dict):
+            deps.extend(DepInfo(name, dev=dev) for name in declared)
     return deps

@@ -1,10 +1,10 @@
 """主分析器 — 协调各子模块，输出完整项目分析结果"""
 
 import os
-import stat
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ..targets import safe_project_entry
 from .cmd_extractor import CommandSet, extract_commands
 from .config_scanner import ConfigStatus, scan_existing_configs
 from .dep_parser import DepInfo, parse_dependencies
@@ -155,8 +155,9 @@ def _detect_test_setup(project_path: Path, dependencies: list[DepInfo]) -> tuple
     declared_commands = extract_commands(project_path)
     test_commands = [
         cmd
-        for cmd in declared_commands.test
-        if cmd == "pytest" or cmd.startswith(("make ", "npm run ", "composer run "))
+        for cmd in declared_commands.generation_dict()["test"]
+        if cmd == "pytest"
+        or cmd.startswith(("make ", "npm run ", "pnpm run ", "yarn run ", "bun run ", "composer run "))
     ]
     if test_commands:
         test_cmd = test_commands[0].lower()
@@ -216,15 +217,7 @@ def _detect_test_setup(project_path: Path, dependencies: list[DepInfo]) -> tuple
 
 def _is_project_entry(path: Path, root: Path) -> bool:
     """扫描只接受项目内的普通路径，跳过链接、junction 和不可读条目。"""
-    try:
-        metadata = path.lstat()
-        return (
-            not stat.S_ISLNK(metadata.st_mode)
-            and not getattr(metadata, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
-            and path.resolve().is_relative_to(root)
-        )
-    except OSError:
-        return False
+    return safe_project_entry(path, root)
 
 
 def _detect_ci_config(project_path: Path) -> bool:
