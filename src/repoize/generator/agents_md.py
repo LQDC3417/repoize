@@ -22,14 +22,4 @@ class AgentsMdGenerator(BaseGenerator):
         env = get_template_env()
         template = env.get_template("agents_md.j2")
 
-        return template.render(
-            project_name=self.analysis.project_name,
-            primary_language=self.analysis.primary_language or "Unknown",
-            languages=self.analysis.languages,
-            dependencies=self.analysis.dependencies,
-            commands=self.analysis.commands.to_dict(),
-            env_info=self.analysis.env_info,
-            profile=self.analysis.profile,
-            frameworks=self.analysis.frameworks,
-            directory_tree=self.analysis.directory_tree,
-        )
+        return template.render(**self.template_context())

@@ -72,13 +72,13 @@
 
 ## Task 3 — v0.2.0 最小默认与双语
 
-- [ ] init 默认 AGENTS，init --type 在此基础增加；generate 精确选择；cursor/cursorrules 别名去重。
-- [ ] update 不创建缺失文件；常规跳过无交互；旧 check 不改变退出语义。
-- [ ] init/generate/update --lang en|zh，默认 en；默认建议不作为仓库指令。
-- [ ] setup、命令、依赖、树使用仓库证据；suggested 留 doctor 建议区。
-- [ ] 英文模板和完整中文模板；已有手写内容及 header 不翻译。
-- [ ] 拆分默认单文件与显式六类安装冒烟；版本 0.2.0、CHANGELOG。
-- [ ] Specification review -> 修复 -> quality review -> 修复 -> 本地阶段提交。
+- [x] init 默认 AGENTS，init --type 在此基础增加；generate 精确选择；cursor/cursorrules 别名去重。
+- [x] update 不创建缺失文件；常规跳过无交互；旧 check 不改变退出语义。
+- [x] init/generate/update --lang en|zh，默认 en；默认建议不作为仓库指令。
+- [x] setup、命令、依赖、树使用仓库证据；suggested 留 doctor 建议区。
+- [x] 英文模板和完整中文模板；已有手写内容及 header 不翻译。
+- [x] 拆分默认单文件与显式六类安装冒烟；版本 0.2.0、CHANGELOG。
+- [x] Specification review -> 修复 -> quality review -> 修复 -> 本地阶段提交。
 
 ## Task 4 — v0.3.0 预览、写入与漂移
 
@@ -118,3 +118,7 @@
 - Task 1 收尾：规范与质量审查均 APPROVED；质量修复后主线程复验 234 tests passed，Ruff/diff 通过；依赖目录与外部链接测试误报、JUnit 漏报均已修复。
 
 - Task 2：命令来源与 doctor 完成，规范/质量审查均 APPROVED；主线程复验 331 tests passed，Ruff check/format、diff 通过。Python 3.10 曾复验该阶段 320 tests 通过；最终全功能仍需再次做跨版本安装验收。
+
+- Task 3 验收中：主线程复验 373 tests passed、Ruff check/format 和 diff check 通过；v0.2.0 wheel 在源码外独立安装后 smoke 通过；规格审查 APPROVED，质量审查进行中。
+
+- Task 3 收尾：规格与质量审查均 APPROVED；主线程 373 tests、Ruff check/format、diff check、v0.2.0 隔离 wheel 安装 smoke 通过。未公开发布该版本。

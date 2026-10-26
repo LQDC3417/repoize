@@ -36,7 +36,7 @@ def test_main_help(runner):
     result = runner.invoke(main, ["--help"])
     assert result.exit_code == 0
     assert "repoize" in result.output
-    assert "一条命令让任何项目对 AI Agent 友好" in result.output
+    assert "Generate evidence-based instructions" in result.output
 
 
 def test_analyze_help(runner):
@@ -50,7 +50,7 @@ def test_generate_help(runner):
     """测试 generate 命令帮助信息。"""
     result = runner.invoke(main, ["generate", "--help"])
     assert result.exit_code == 0
-    assert "选择性生成指定类型的配置文件" in result.output
+    assert "Generate only the explicitly selected" in result.output
 
 
 def test_check_help(runner):
@@ -149,8 +149,9 @@ def test_write_failure_returns_error_and_continues(runner, sample_project, comma
     args = [command, str(sample_project), "--no-env"]
     if command in {"init", "generate"}:
         args.append("--force")
-    if command != "init":
-        args.extend(["--type", "agents", "--type", "claude"])
+    args.extend(["--type", "agents", "--type", "claude"])
+    if command == "update":
+        assert runner.invoke(main, ["generate", str(sample_project), "--type", "claude"]).exit_code == 0
 
     result = runner.invoke(main, args)
 
@@ -165,6 +166,7 @@ def test_update_invalid_json_returns_error_without_overwriting(runner, sample_pr
     output = sample_project / ".mcp.json"
     output.write_text("{invalid", encoding="utf-8")
 
+    assert runner.invoke(main, ["generate", str(sample_project), "--type", "claude"]).exit_code == 0
     result = runner.invoke(main, ["update", str(sample_project), "--type", "mcp", "--type", "claude", "--no-env"])
 
     assert result.exit_code == 1

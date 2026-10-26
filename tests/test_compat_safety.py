@@ -172,14 +172,18 @@ def test_legacy_only_is_blocked_and_other_types_continue(tmp_path, command, forc
     args = [command, str(tmp_path)]
     if command != "update" and force:
         args.append("--force")
-    if command != "init":
-        args.extend(["--type", kind, "--type", "agents"])
+    args.extend(["--type", kind, "--type", "agents"])
+    if command == "update":
+        (tmp_path / "AGENTS.md").write_text(
+            f"{GENERATED_START}\nstale managed body\n{GENERATED_END}\n", encoding="utf-8"
+        )
     result = CliRunner().invoke(main, args)
     assert result.exit_code == 1, result.output
     assert "迁移" in result.output
     assert not (tmp_path / modern).exists()
     assert old.read_text(encoding="utf-8") == "legacy"
     assert (tmp_path / "AGENTS.md").is_file()
+    assert "stale managed body" not in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize("command", ["init", "generate", "update"])
@@ -193,8 +197,7 @@ def test_mcp_coexistence_preserves_new_and_warns(tmp_path, command):
     args = [command, str(tmp_path)]
     if command != "update":
         args.append("--force")
-    if command != "init":
-        args.extend(["--type", "mcp"])
+    args.extend(["--type", "mcp"])
     result = CliRunner().invoke(main, args)
     assert result.exit_code == 0, result.output
     assert "并存" in result.output
@@ -292,8 +295,7 @@ def test_cursor_coexistence_is_blocked(tmp_path, analysis, command):
     args = [command, str(tmp_path)]
     if command != "update":
         args.append("--force")
-    if command != "init":
-        args.extend(["--type", "cursorrules"])
+    args.extend(["--type", "cursorrules"])
     result = CliRunner().invoke(main, args)
     assert result.exit_code == 1
     assert "迁移" in result.output
@@ -366,8 +368,7 @@ def test_wrapped_skill_is_not_silently_skipped(tmp_path, analysis, command):
     original = f"{GENERATED_START}\n---\nname: old\ndescription: old\n---\n{GENERATED_END}\n"
     output.write_text(original, encoding="utf-8")
     args = [command, str(tmp_path)]
-    if command != "init":
-        args.extend(["--type", "skill"])
+    args.extend(["--type", "skill"])
     result = CliRunner().invoke(main, args)
     assert result.exit_code == 1
     assert "迁移" in result.output
@@ -426,8 +427,7 @@ def test_mcp_coexistence_without_force_warns_and_skips(tmp_path, analysis, comma
     original = '{"custom": 42}'
     modern.write_text(original, encoding="utf-8")
     args = [command, str(tmp_path)]
-    if command == "generate":
-        args.extend(["--type", "mcp"])
+    args.extend(["--type", "mcp"])
     result = CliRunner().invoke(main, args)
     assert result.exit_code == 0, result.output
     assert "并存" in result.output
@@ -437,7 +437,7 @@ def test_mcp_coexistence_without_force_warns_and_skips(tmp_path, analysis, comma
         McpConfigGenerator(analysis).write(tmp_path)
 
 
-def test_cursor_profile_defaults_are_explicit_candidates(tmp_path):
+def test_cursor_profile_defaults_are_excluded_from_generated_commands(tmp_path):
     """单文件项目的画像建议不能写成已配置或必须执行的命令。"""
     (tmp_path / "main.py").write_text("pass", encoding="utf-8")
     analysis = analyze_project(tmp_path)
@@ -453,4 +453,4 @@ def test_cursor_profile_defaults_are_explicit_candidates(tmp_path):
     ]
     assert commands
     for command in commands:
-        assert f"候选命令（使用前核对项目配置）: {command}" in content
+        assert command not in content

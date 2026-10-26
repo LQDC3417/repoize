@@ -9,9 +9,9 @@ from .analyzer.config_scanner import scan_existing_configs
 from .analyzer.lang_detector import get_primary_language
 from .analyzer.language_profiles import get_language_profile
 from .formats import marker_bounds, split_frontmatter
-from .targets import safe_project_entry
+from .targets import GENERATOR_MAP, normalize_types, safe_project_entry
 
-DOCTOR_TYPES = ("agents", "claude", "cursor", "copilot", "mcp", "skill")
+DOCTOR_TYPES = tuple(GENERATOR_MAP)
 _CONFIG_TYPES = {
     "agents_md": "agents",
     "claude_md": "claude",
@@ -163,7 +163,7 @@ def _check_config(root: Path, path: Path, config_type: str) -> list[dict]:
 def diagnose_project(project_path: Path, file_types: tuple[str, ...] = ()) -> dict:
     """返回独立 doctor v1 报告；显式选择只要求所选工具的入口。"""
     root = Path(project_path).absolute()
-    canonical = {"cursor" if name == "cursorrules" else name for name in file_types}
+    canonical = set(normalize_types(file_types))
     if not canonical.issubset(DOCTOR_TYPES):
         raise ValueError("Unsupported diagnostic type.")
     configs = [

@@ -1,33 +1,6 @@
 ---
-description: 项目开发参考与候选命令
+description: {{ '项目开发参考与有证据的命令' if lang == 'zh' else 'Project development reference and commands with local evidence' }}
 alwaysApply: true
 ---
-# {{ project_name }} — Cursor Rules
-
-# 项目概述
-语言: {{ primary_language }}
-{% if frameworks %}框架: {{ frameworks | join(", ") }}{% endif %}
-{% for dep in dependencies %}{% if not dep.dev %}
-依赖: {{ dep.name }}{% endif %}{% endfor %}
-{% if profile and profile.setup_commands %}
-# 快速开始（语言通用建议，使用前核对）
-{% for cmd in profile.setup_commands %}候选命令（使用前核对项目配置）: {{ cmd }}
-{% endfor %}{% endif %}
-
-# 编码规范
-- 遵循项目已有代码风格，不要随意修改相邻代码的格式
-- 修改代码前先理解现有逻辑
-- 关键逻辑加注释，简单代码不加注释
-{% if commands.test %}
-# 测试
-候选命令（使用前核对项目配置）: {{ commands.test[0] }}
-{% endif %}{% if commands.lint %}
-# 代码检查
-候选命令（使用前核对项目配置）: {{ commands.lint[0] }}
-{% endif %}{% if commands.format %}
-# 格式化
-候选命令（使用前核对项目配置）: {{ commands.format[0] }}
-{% endif %}
-# 原则
-- 优先使用已有的库和工具
-- 不确定的地方先问用户
+# {{ project_name }} — {{ 'Cursor 规则' if lang == 'zh' else 'Cursor Rules' }}
+{% include 'project_body.j2' %}

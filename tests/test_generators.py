@@ -56,8 +56,7 @@ def test_claude_md_generator():
     assert analysis.project_name in content
     assert "Python" in content
     assert "fastapi" in content
-    assert "编码规范" in content
-    assert "工作流程" in content
+    assert "Working conventions" in content
     assert gen.output_filename == "CLAUDE.md"
 
 
@@ -168,7 +167,7 @@ ALL_GENERATORS = [
         ("go", "go mod download", "go test ./..."),
         ("rust", "cargo build", "cargo test"),
         ("java", "mvn -q dependency:resolve", "mvn test"),
-        ("ruby", "bundle install", "bundle exec rake test"),
+        ("ruby", "bundle install", None),
         ("php", "composer install", "composer run test"),
     ],
 )
@@ -180,7 +179,10 @@ def test_non_python_generator_outputs(language, setup, test_cmd):
     for generator_cls in ALL_GENERATORS:
         content = generator_cls(analysis).generate()
         assert setup in content
-        assert test_cmd in content
+        if test_cmd:
+            assert test_cmd in content
+        else:
+            assert "bundle exec rake test" not in content
         assert "pip install" not in content
 
 

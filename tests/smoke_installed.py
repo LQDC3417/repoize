@@ -43,6 +43,23 @@ def main() -> None:
 
         assert run("--version").stdout.strip().endswith(version("repoize"))
         run("init")
+        assert (project / "AGENTS.md").is_file()
+        assert all(not (project / name).exists() for name in OUTPUT_FILES[1:])
+        run(
+            "init",
+            "--type",
+            "claude",
+            "--type",
+            "cursor",
+            "--type",
+            "cursorrules",
+            "--type",
+            "copilot",
+            "--type",
+            "mcp",
+            "--type",
+            "skill",
+        )
         assert all((project / name).is_file() for name in OUTPUT_FILES)
         assert json.loads((project / ".mcp.json").read_text(encoding="utf-8")) == {"mcpServers": {}}
         assert not (project / ".claude/mcp.json").exists()

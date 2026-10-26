@@ -1,4 +1,4 @@
-""".cursorrules 生成器"""
+"""Cursor .mdc 生成器"""
 
 from ..targets import CURSOR_TARGET
 from . import get_template_env
@@ -6,7 +6,7 @@ from .base import BaseGenerator
 
 
 class CursorRulesGenerator(BaseGenerator):
-    """生成 .cursorrules 文件。"""
+    """生成 Cursor .mdc 文件。"""
 
     @property
     def name(self) -> str:
@@ -23,11 +23,4 @@ class CursorRulesGenerator(BaseGenerator):
         env = get_template_env()
         template = env.get_template("cursorrules.j2")
 
-        return template.render(
-            project_name=self.analysis.project_name,
-            primary_language=self.analysis.primary_language or "Unknown",
-            dependencies=self.analysis.dependencies,
-            commands=self.analysis.commands.to_dict(),
-            profile=self.analysis.profile,
-            frameworks=self.analysis.frameworks,
-        )
+        return template.render(**self.template_context())

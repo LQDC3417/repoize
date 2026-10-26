@@ -1,38 +1,7 @@
 ---
 name: project-dev
 description: |-
-  项目开发参考，包含检测到的项目信息与候选命令。
+  {{ '项目开发参考，包含检测到的项目信息与有证据的命令。' if lang == 'zh' else 'Project development reference with detected project information and commands supported by local evidence.' }}
 ---
-
-# {{ project_name }} 开发指南
-
-## 快速开始（语言通用建议，使用前核对）
-
-{% if profile %}
-{% for cmd in profile.setup_commands %}```bash
-{{ cmd }}
-```
-{% endfor %}{% endif %}
-
-## 项目结构
-
-- 主语言: {{ primary_language }}
-{% if frameworks %}- 框架: {{ frameworks | join(", ") }}
-{% endif %}{% for dep in dependencies %}{% if not dep.dev %}- 依赖: {{ dep.name }}
-{% endif %}{% endfor %}
-
-## 编码规范
-
-遵循项目已有约定；以下命令包含语言通用建议，使用前请核对项目配置。
-
-## 常用命令
-
-{% if commands.build %}### 构建
-{% for cmd in commands.build %}- `{{ cmd }}`
-{% endfor %}{% endif %}{% if commands.test %}### 测试
-{% for cmd in commands.test %}- `{{ cmd }}`
-{% endfor %}{% endif %}{% if commands.lint %}### 代码检查
-{% for cmd in commands.lint %}- `{{ cmd }}`
-{% endfor %}{% endif %}{% if commands.format %}### 格式化
-{% for cmd in commands.format %}- `{{ cmd }}`
-{% endfor %}{% endif %}
+# {{ project_name }} — {{ '开发指南' if lang == 'zh' else 'Development guide' }}
+{% include 'project_body.j2' %}

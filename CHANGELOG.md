@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - Unreleased
+
+### Changed
+
+- `init` now creates only `AGENTS.md` by default; repeat `--type` to add client targets. `generate` requires explicit types and writes only those targets.
+- `cursor` is the canonical type; `cursorrules` remains an alias. Repeated types are deduplicated.
+- `update` only handles existing Repoize targets and reports explicitly requested missing files with a `generate` hint. Legacy paths still require manual migration.
+- `init`, `generate`, and `update` accept `--lang en|zh` (default: English). Updates preserve handwritten content and existing frontmatter.
+- Generated commands now require declared or inferred local evidence, include source locations, and are marked as not executed. Language-profile suggestions are excluded from generated instructions.
+- Existing targets are skipped without an interactive prompt. Selection, migration, format, and path safeguards still apply with `--force`.
+
+### Added
+
+- Read-only `doctor` diagnostics for local configuration formats and command evidence, with a separate versioned JSON report.
+
 ## [0.1.2] - Unreleased
 
 ### Changed

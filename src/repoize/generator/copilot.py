@@ -22,10 +22,4 @@ class CopilotGenerator(BaseGenerator):
         env = get_template_env()
         template = env.get_template("copilot.j2")
 
-        return template.render(
-            project_name=self.analysis.project_name,
-            primary_language=self.analysis.primary_language or "Unknown",
-            commands=self.analysis.commands.to_dict(),
-            profile=self.analysis.profile,
-            frameworks=self.analysis.frameworks,
-        )
+        return template.render(**self.template_context())

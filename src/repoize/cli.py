@@ -6,28 +6,17 @@ from typing import Any
 
 import click
 from rich.console import Console
-from rich.prompt import Confirm
 
 from .analyzer.project_analyzer import ProjectAnalysis, analyze_project
 from .reporter.health_report import print_health_report
-from .targets import legacy_decision, safe_output_path
+from .targets import GENERATOR_MAP, TYPE_ALIASES, legacy_decision, normalize_types, safe_output_path
 
 console = Console()
 error_console = Console(stderr=True)
 SCHEMA_PATH = Path(__file__).parent / "schemas" / "analysis.schema.json"
 
-# 生成器类型到模块的映射
-GENERATOR_MAP: dict[str, tuple[str, str]] = {
-    "agents": ("generator.agents_md", "AgentsMdGenerator"),
-    "claude": ("generator.claude_md", "ClaudeMdGenerator"),
-    "cursorrules": ("generator.cursorrules", "CursorRulesGenerator"),
-    "copilot": ("generator.copilot", "CopilotGenerator"),
-    "mcp": ("generator.mcp_config", "McpConfigGenerator"),
-    "skill": ("generator.skill_md", "SkillMdGenerator"),
-}
 
-
-def _load_generator(name: str, analysis: ProjectAnalysis) -> Any:
+def _load_generator(name: str, analysis: ProjectAnalysis, lang: str = "en") -> Any:
     """动态加载生成器类。
 
     Args:
@@ -39,10 +28,10 @@ def _load_generator(name: str, analysis: ProjectAnalysis) -> Any:
     """
     import importlib
 
-    module_path, class_name = GENERATOR_MAP[name]
+    module_path, class_name = GENERATOR_MAP[normalize_types((name,))[0]]
     module = importlib.import_module(f"repoize.{module_path}")
     cls = getattr(module, class_name)
-    return cls(analysis)
+    return cls(analysis, lang=lang)
 
 
 def _analyze_and_report(project_path: Path, scan_env: bool) -> ProjectAnalysis:
@@ -63,39 +52,8 @@ def _analyze_and_report(project_path: Path, scan_env: bool) -> ProjectAnalysis:
     return analysis
 
 
-def _check_existing_configs(analysis: ProjectAnalysis, force: bool) -> bool:
-    """检查已有配置文件，如果需要确认则返回 True 表示继续。
-
-    Args:
-        analysis: 项目分析结果
-        force: 是否强制覆盖
-
-    Returns:
-        True 表示继续执行，False 表示取消
-    """
-    # 迁移或安全错误必须按类型汇总，不能被交互确认掩盖。
-    for gen_name in GENERATOR_MAP:
-        gen = _load_generator(gen_name, analysis)
-        try:
-            output = safe_output_path(analysis.project_path, gen.output_filename)
-            if legacy_decision(analysis.project_path, gen.output_filename):
-                return True
-            gen.validate_existing(output)
-        except (OSError, ValueError):
-            return True
-    existing = [c for c in analysis.existing_configs if c.exists]
-    if existing and not force:
-        console.print(f"[yellow]⚠️  检测到 {len(existing)} 个已有配置文件。[/yellow]")
-        for c in existing:
-            console.print(f"  - {c.name}")
-        if not Confirm.ask("是否继续？已有文件将被跳过"):
-            console.print("[dim]已取消。[/dim]")
-            return False
-    return True
-
-
 def _generate_all_configs(
-    project_path: Path, analysis: ProjectAnalysis, force: bool, file_types: tuple[str, ...] = ()
+    project_path: Path, analysis: ProjectAnalysis, force: bool, file_types: tuple[str, ...], lang: str = "en"
 ) -> tuple[list[str], list[str], list[str]]:
     """生成所有或指定的配置文件。
 
@@ -103,7 +61,7 @@ def _generate_all_configs(
         project_path: 项目根目录路径
         analysis: 项目分析结果
         force: 是否强制覆盖
-        file_types: 要生成的类型，空值表示全部
+        file_types: 要生成的类型
 
     Returns:
         (生成的文件列表, 跳过的文件列表, 失败的文件列表)
@@ -113,8 +71,8 @@ def _generate_all_configs(
     skipped: list[str] = []
     failed: list[str] = []
 
-    for gen_name in file_types or tuple(GENERATOR_MAP):
-        gen = _load_generator(gen_name, analysis)
+    for gen_name in normalize_types(file_types):
+        gen = _load_generator(gen_name, analysis, lang)
         try:
             output_path = safe_output_path(project_path, gen.output_filename)
             warning = legacy_decision(project_path, gen.output_filename)
@@ -156,34 +114,31 @@ def _print_generation_summary(generated: list[str], skipped: list[str], failed: 
 @click.group()
 @click.version_option(package_name="repoize")
 def main() -> None:
-    """repoize — 一条命令让任何项目对 AI Agent 友好。
-
-    自动生成 AGENTS.md、CLAUDE.md、Cursor .mdc 规则、MCP 配置、Skill 文件，
-    让 Claude Code、Cursor、Copilot 等 AI 编程助手立即理解你的项目。
-    """
+    """repoize — Generate evidence-based instructions for AI coding agents."""
     pass
 
 
-@main.command()
+@main.command(help="Create AGENTS.md, plus any explicitly selected client configurations.")
 @click.argument("path", default=".", type=click.Path(exists=True, file_okay=False))
-@click.option("--force", is_flag=True, help="覆盖已有配置文件")
-@click.option("--no-env", is_flag=True, help="跳过环境变量扫描")
-def init(path: str, force: bool, no_env: bool) -> None:
-    """扫描项目并一键生成所有 Agent 配置文件。"""
+@click.option(
+    "--type",
+    "file_types",
+    multiple=True,
+    type=click.Choice([*GENERATOR_MAP, *TYPE_ALIASES]),
+    help="Add a configuration type; repeat to select several.",
+)
+@click.option(
+    "--lang", default="en", type=click.Choice(["en", "zh"]), show_default=True, help="Language of generated content."
+)
+@click.option("--force", is_flag=True, help="Replace selected existing configurations.")
+@click.option("--no-env", is_flag=True, help="Compatibility option; environment scanning is off by default.")
+def init(path: str, file_types: tuple[str, ...], lang: str, force: bool, no_env: bool) -> None:
+    """默认仅生成 AGENTS.md，显式类型追加到默认目标。"""
     project_path = Path(path).absolute()
     console.print(f"[bold blue]🔍 正在扫描项目:[/bold blue] {project_path}")
-
-    # 分析项目并打印报告
     analysis = _analyze_and_report(project_path, scan_env=False)
-
-    # 检查已有配置
-    if not _check_existing_configs(analysis, force):
-        return
-
-    # 生成所有配置文件
-    generated, skipped, failed = _generate_all_configs(project_path, analysis, force)
-
-    # 打印汇总
+    selected = normalize_types(("agents", *file_types))
+    generated, skipped, failed = _generate_all_configs(project_path, analysis, force, selected, lang)
     _print_generation_summary(generated, skipped, failed)
 
 
@@ -228,18 +183,21 @@ def analyze(path: str, output_format: str, output_file: str | None, no_env: bool
         print_health_report(analysis, console)
 
 
-@main.command()
+@main.command(help="Generate only the explicitly selected configuration types.")
 @click.argument("path", default=".", type=click.Path(exists=True, file_okay=False))
 @click.option(
     "--type",
     "file_types",
     multiple=True,
-    type=click.Choice(["agents", "claude", "cursorrules", "copilot", "mcp", "skill"]),
-    help="要生成的配置文件类型（可多次指定）",
+    type=click.Choice([*GENERATOR_MAP, *TYPE_ALIASES]),
+    help="Configuration type to generate; repeat to select several.",
 )
-@click.option("--force", is_flag=True, help="覆盖已有配置文件")
+@click.option(
+    "--lang", default="en", type=click.Choice(["en", "zh"]), show_default=True, help="Language of generated content."
+)
+@click.option("--force", is_flag=True, help="Replace selected existing configurations.")
 @click.option("--no-env", is_flag=True, help="跳过环境变量扫描")
-def generate(path: str, file_types: tuple[str, ...], force: bool, no_env: bool) -> None:
+def generate(path: str, file_types: tuple[str, ...], lang: str, force: bool, no_env: bool) -> None:
     """选择性生成指定类型的配置文件。"""
     if not file_types:
         console.print("[red]请至少指定一个文件类型，例如: --type agents --type mcp[/red]")
@@ -253,34 +211,36 @@ def generate(path: str, file_types: tuple[str, ...], force: bool, no_env: bool) 
 
     analysis = analyze_project(project_path, scan_env=False)
 
-    generated, skipped, failed = _generate_all_configs(project_path, analysis, force, file_types)
+    generated, skipped, failed = _generate_all_configs(project_path, analysis, force, file_types, lang)
     _print_generation_summary(generated, skipped, failed)
 
 
-@main.command()
+@main.command(help="Update existing supported targets while preserving handwritten content.")
 @click.argument("path", default=".", type=click.Path(exists=True, file_okay=False))
 @click.option(
     "--type",
     "file_types",
     multiple=True,
-    type=click.Choice(["agents", "claude", "cursorrules", "copilot", "mcp", "skill"]),
-    help="要更新的配置文件类型（可多次指定）",
+    type=click.Choice([*GENERATOR_MAP, *TYPE_ALIASES]),
+    help="Configuration type to update; repeat to select several.",
 )
-@click.option("--no-env", is_flag=True, help="跳过环境变量扫描")
-def update(path: str, file_types: tuple[str, ...], no_env: bool) -> None:
+@click.option("--no-env", is_flag=True, help="Compatibility option; environment scanning is off by default.")
+@click.option(
+    "--lang", default="en", type=click.Choice(["en", "zh"]), show_default=True, help="Language of generated content."
+)
+def update(path: str, file_types: tuple[str, ...], lang: str, no_env: bool) -> None:
     """增量更新已生成配置，保留手写内容。"""
     project_path = Path(path).absolute()
     console.print(f"[bold blue]🔄 正在更新配置:[/bold blue] {project_path}")
 
     analysis = analyze_project(project_path, scan_env=False)
-    selected_types = file_types or tuple(GENERATOR_MAP)
+    selected_types = normalize_types(file_types) if file_types else tuple(GENERATOR_MAP)
     updated: list[str] = []
-    created: list[str] = []
     skipped: list[str] = []
     failed: list[str] = []
 
     for gen_name in selected_types:
-        gen = _load_generator(gen_name, analysis)
+        gen = _load_generator(gen_name, analysis, lang)
         output_path = project_path / gen.output_filename
 
         try:
@@ -289,9 +249,8 @@ def update(path: str, file_types: tuple[str, ...], no_env: bool) -> None:
             if warning:
                 error_console.print(f"  [yellow]⚠️  {warning}[/yellow]")
             if not output_path.exists():
-                gen.write(project_path, force=True)
-                created.append(gen.output_filename)
-                console.print(f"  [green]✅ 创建 {gen.output_filename}[/green]")
+                if file_types:
+                    raise ValueError(f"目标不存在，请先运行 repoize generate --type {gen_name}")
                 continue
 
             result = gen.update(project_path)
@@ -306,11 +265,9 @@ def update(path: str, file_types: tuple[str, ...], no_env: bool) -> None:
             error_console.print(f"  [red]❌ 更新 {gen.output_filename} 失败: {e}[/red]")
 
     if failed:
-        error_console.print(
-            f"\n[bold red]❌ 更新 {len(updated)} 个，创建 {len(created)} 个文件，失败 {len(failed)} 个[/bold red]"
-        )
+        error_console.print(f"\n[bold red]❌ 更新 {len(updated)} 个文件，失败 {len(failed)} 个[/bold red]")
     else:
-        console.print(f"\n[bold green]✅ 完成！更新 {len(updated)} 个，创建 {len(created)} 个文件[/bold green]")
+        console.print(f"\n[bold green]✅ 完成！更新 {len(updated)} 个文件[/bold green]")
     if skipped:
         console.print(f"[yellow]⏭  跳过 {len(skipped)} 个未管理的已有文件[/yellow]")
     if failed:
@@ -352,7 +309,7 @@ def check(path: str) -> None:
     elif score >= 40:
         console.print("[bold yellow]💡 建议运行 'repoize init' 补充缺失的配置文件。[/bold yellow]")
     else:
-        console.print("[bold red]🚀 建议运行 'repoize init' 一键生成所有配置文件。[/bold red]")
+        console.print("[bold red]🚀 建议运行 'repoize init' 生成 AGENTS.md；通过 --type 添加客户端配置。[/bold red]")
 
 
 @main.command(help="Check local configuration formats and command evidence without executing project commands.")
@@ -361,7 +318,7 @@ def check(path: str) -> None:
     "--type",
     "file_types",
     multiple=True,
-    type=click.Choice(["agents", "claude", "cursor", "cursorrules", "copilot", "mcp", "skill"]),
+    type=click.Choice([*GENERATOR_MAP, *TYPE_ALIASES]),
     help="Check only these configuration types; repeat to select several.",
 )
 @click.option(

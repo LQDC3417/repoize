@@ -3,6 +3,24 @@
 import stat
 from pathlib import Path
 
+# 生成器类型到模块的映射
+GENERATOR_MAP: dict[str, tuple[str, str]] = {
+    "agents": ("generator.agents_md", "AgentsMdGenerator"),
+    "claude": ("generator.claude_md", "ClaudeMdGenerator"),
+    "cursor": ("generator.cursorrules", "CursorRulesGenerator"),
+    "copilot": ("generator.copilot", "CopilotGenerator"),
+    "mcp": ("generator.mcp_config", "McpConfigGenerator"),
+    "skill": ("generator.skill_md", "SkillMdGenerator"),
+}
+
+TYPE_ALIASES = {"cursorrules": "cursor"}
+
+
+def normalize_types(names: tuple[str, ...]) -> tuple[str, ...]:
+    """统一类型别名并保持首次选择顺序。"""
+    return tuple(dict.fromkeys(TYPE_ALIASES.get(name, name) for name in names))
+
+
 MCP_TARGET = ".mcp.json"
 CURSOR_TARGET = ".cursor/rules/repoize.mdc"
 

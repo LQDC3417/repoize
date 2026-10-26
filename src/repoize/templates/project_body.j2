@@ -1,0 +1,45 @@
+{% if lang == 'zh' %}{% set labels = {'overview': '项目概述', 'language': '主语言', 'frameworks': '框架', 'deps': '依赖', 'dev': '开发依赖', 'commands': '项目命令', 'setup': '安装准备', 'build': '构建', 'test': '测试', 'lint': '代码检查', 'format': '格式化', 'run': '运行', 'sources': '来源', 'declared': '声明', 'inferred': '推断', 'tree': '目录结构', 'conventions': '工作约定'} %}
+> 由 [repoize](https://github.com/LQDC3417/repoize) 根据本地项目证据生成；请按项目实际情况核对。
+{% else %}{% set labels = {'overview': 'Project overview', 'language': 'Primary language', 'frameworks': 'Frameworks', 'deps': 'Dependencies', 'dev': 'Development dependencies', 'commands': 'Project commands', 'setup': 'Setup', 'build': 'Build', 'test': 'Test', 'lint': 'Lint', 'format': 'Format', 'run': 'Run', 'sources': 'Sources', 'declared': 'declared', 'inferred': 'inferred', 'tree': 'Directory structure', 'conventions': 'Working conventions'} %}
+> Generated from local project evidence by [repoize](https://github.com/LQDC3417/repoize); review against the project configuration.
+{% endif %}
+## {{ labels.overview }}
+
+- {{ labels.language }}: {{ primary_language }}
+{% for language, ratio in languages.items() %}{% if language != primary_language %}- {{ '其他语言' if lang == 'zh' else 'Other language' }}: {{ language }} ({{ '%.0f' | format(ratio * 100) }}%)
+{% endif %}{% endfor %}{% if frameworks %}- {{ labels.frameworks }}: {{ frameworks | join(', ') }}
+{% endif %}
+{% if dependencies %}### {{ labels.deps }}
+
+{% for dep in dependencies %}{% if not dep.dev %}- {{ dep.name }}{% if dep.version_spec %} ({{ dep.version_spec }}){% endif %}
+{% endif %}{% endfor %}
+### {{ labels.dev }}
+
+{% for dep in dependencies %}{% if dep.dev %}- {{ dep.name }}{% if dep.version_spec %} ({{ dep.version_spec }}){% endif %}
+{% endif %}{% endfor %}{% endif %}
+## {{ labels.commands }}
+
+{% if lang == 'zh' %}以下命令具有声明或推断依据，均未执行；请先核对来源。未执行命令不代表检查或测试已通过。
+{% else %}These commands have declared or inferred evidence and were not executed. Review their sources before use. No test or check success is implied.
+{% endif %}
+{% for category, entries in commands.items() %}{% if entries %}### {{ labels[category] }}
+
+{% for command in entries %}```bash
+{{ command }}
+```
+{{ labels.sources }}: {% for source in command_sources[(category, command)] %}{{ labels[source.kind] }} — {{ source.path or ('项目配置' if lang == 'zh' else 'project configuration') }}{% if source.selector %} · {{ source.selector }}{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}
+
+{% endfor %}{% endif %}{% endfor %}
+{% if directory_tree %}## {{ labels.tree }}
+
+```text
+{{ directory_tree }}
+```
+{% endif %}
+## {{ labels.conventions }}
+
+{% if lang == 'zh' %}- 遵循项目已有约定，先理解现有代码再修改。
+- 保持改动集中，按项目实际配置选择验证命令。
+{% else %}- Follow existing project conventions and read the relevant code before editing.
+- Keep changes focused and choose verification commands from the actual project configuration.
+{% endif %}
