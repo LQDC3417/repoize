@@ -87,7 +87,7 @@ def detect_languages(project_path: Path, max_depth: int = 10, *, strict: bool = 
         return {}
 
     total = sum(counter.values())
-    return {lang: count / total for lang, count in counter.most_common()}
+    return {lang: count / total for lang, count in sorted(counter.items(), key=lambda item: (-item[1], item[0]))}
 
 
 def get_primary_language(project_path: Path, *, strict: bool = False) -> str | None:

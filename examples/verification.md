@@ -10,7 +10,8 @@ The stored terminal record has trailing whitespace stripped; its output text is 
 
 ## Verified locally / 本机已验证
 
-- Windows, Python 3.13.12: `python -m pytest -q` — **427 passed, 2 skipped**. The skipped cases require POSIX filesystem behavior unavailable on this platform.
+- Initial delivery snapshot on Windows, Python 3.13.12: `python -m pytest -q` — **427 passed, 2 skipped**. The skipped cases require POSIX filesystem behavior unavailable on this platform.
+- After the final ordering correction, the main thread reran the full suite on Windows with Python 3.10.20 and 3.13.12: **430 passed, 2 skipped** on each. Three new regressions cover language-count ties, count precedence, and filename case ties; the implementation changes only the two sort keys. 最终固定排序补正后，主线程在 Python 3.10/3.13 各复验 430 项通过、2 项 POSIX 用例跳过。
 - `ruff check src tests scripts`, `ruff format --check src tests scripts`, and `git diff --check` passed. The formatter checked 49 Python files.
 - The release checker has 15 tests: consistent batch/hash output, static version reading, tag/source mismatch, missing/extra artifacts, metadata mismatch, corrupt archives, checksum output, and uv's `.gitignore` build marker. Initial checker tests and the later uv-marker regression were observed failing before implementation.
 - Python, TypeScript, and Go disposable copies completed analysis, default generation, `doctor --type agents`, and `update --check --type agents`. Python English and Chinese generation both passed immediate drift checks. The English demonstration then changed the declared entry point, observed drift status 1, previewed and applied the update, preserved a handwritten prefix, and finished with status 0. Dry-run bytes and change-report schema were checked.

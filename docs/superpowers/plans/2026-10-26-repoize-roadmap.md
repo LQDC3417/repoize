@@ -130,3 +130,5 @@
 - Task 5 验收中：双语文档、真实 Python/TypeScript/Go 演示、版本与产物校验、CI/发布门禁完成，规格审查 APPROVED。主线程 Windows Python 3.10/3.13 各 427 passed、2 POSIX skipped；Ruff check/format 49 文件与 diff check 通过；113 个相对链接（28 份新增/修改 Markdown）、工作流 YAML、Issue frontmatter 检查通过。实现者 exact probe wheel 在外部 Python 3.13.5 安装 smoke 通过；主线程另以 Python 3.10.20 外部安装同批 wheel，smoke 通过。最终干净提交产物、远程源码安装和推送后 CI 仍在收尾步骤。
 
 - Task 5 收尾：规格审查与最终质量/集成审查均 APPROVED；本机双版本完整测试、Ruff、链接、YAML 与独立安装探针均通过。最终 wheel/sdist 从干净提交构建并在工作区外保留；main 快进推送后复验远程源码安装与 CI 实际状态。既有配置不自动迁移，客户端加载、POSIX 实机、用户试用和公开发包不冒充已经完成。
+
+- 最终验收补正：修复语言数量平票和目录名大小写平票的遍历依赖，仅两行排序实现、三项 RED→GREEN 回归。主线程 Windows Python 3.10.20/3.13.12 各 430 passed、2 POSIX skipped，Ruff check/format 49 文件及完整改动 diff check 通过。PowerShell 校验清单改显式 LF 后，经真实 GNU SHA-256 工具验证两份探针产物均 OK；不把已替代的构建探针当最终批次。

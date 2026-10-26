@@ -348,7 +348,7 @@ def _walk_tree(
     try:
         entries = sorted(
             (entry for entry in current.iterdir() if _is_project_entry(entry, current.resolve())),
-            key=lambda e: (not e.is_dir(), e.name.lower()),
+            key=lambda e: (not e.is_dir(), e.name.lower(), e.name),
         )
     except OSError:
         return

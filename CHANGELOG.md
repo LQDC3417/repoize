@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Generated directory trees omit fixed outputs and otherwise empty output ancestors, preventing immediate self-drift.
+- Equal language counts and case-insensitive filename ties now use fixed ordering, avoiding traversal-dependent context changes between checkouts.
 - MCP previews expose fixed field paths only; format errors never reveal configuration values and force does not bypass protection.
 
 ## [0.2.0] - Unreleased
