@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ..targets import safe_project_entry
+from ..targets import OUTPUT_PATHS, safe_project_entry
 from .cmd_extractor import CommandSet, extract_commands
 from .config_scanner import ConfigStatus, scan_existing_configs
 from .dep_parser import DepInfo, parse_dependencies
@@ -320,7 +320,7 @@ def _build_directory_tree(root: Path, max_depth: int = _TREE_MAX_DEPTH) -> str:
     """
     hidden_exceptions = {".github", ".gitlab-ci.yml"}
     lines: list[str] = [f"{root.name}/"]
-    _walk_tree(root, "", max_depth, 0, hidden_exceptions, lines)
+    _walk_tree(root, "", max_depth, 0, hidden_exceptions, lines, root)
     return "\n".join(lines)
 
 
@@ -331,6 +331,7 @@ def _walk_tree(
     depth: int,
     hidden_exceptions: set[str],
     lines: list[str],
+    root: Path,
 ) -> None:
     """递归遍历目录，生成树形文本。
 
@@ -359,6 +360,15 @@ def _walk_tree(
             continue
         if entry.is_dir() and name in IGNORE_DIRS:
             continue
+        relative = entry.relative_to(root).as_posix()
+        if relative in OUTPUT_PATHS.values():
+            continue
+        if (
+            entry.is_dir()
+            and any(name.startswith(relative + "/") for name in OUTPUT_PATHS.values())
+            and not _has_tree_context(entry, root)
+        ):
+            continue
         visible.append(entry)
 
     for i, entry in enumerate(visible):
@@ -368,4 +378,23 @@ def _walk_tree(
         suffix = "/" if entry.is_dir() else ""
         lines.append(f"{prefix}{connector}{entry.name}{suffix}")
         if entry.is_dir():
-            _walk_tree(entry, child_prefix, max_depth, depth + 1, hidden_exceptions, lines)
+            _walk_tree(entry, child_prefix, max_depth, depth + 1, hidden_exceptions, lines, root)
+
+
+def _has_tree_context(directory: Path, root: Path) -> bool:
+    """固定输出祖先只含生成文件时裁剪，保留真实自定义上下文。"""
+    try:
+        for entry in directory.iterdir():
+            if not _is_project_entry(entry, root):
+                continue
+            relative = entry.relative_to(root).as_posix()
+            if relative in OUTPUT_PATHS.values():
+                continue
+            if entry.is_dir() and any(name.startswith(relative + "/") for name in OUTPUT_PATHS.values()):
+                if _has_tree_context(entry, root):
+                    return True
+            else:
+                return True
+    except OSError:
+        return False
+    return False

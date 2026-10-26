@@ -82,16 +82,16 @@
 
 ## Task 4 — v0.3.0 预览、写入与漂移
 
-- [ ] 纯候选内容计算与磁盘写入分离，同一 FileChange 用于 dry-run/check/write。
-- [ ] dry-run 无目录、临时文件或 mtime 变化；--diff 显式显示文本，MCP 仅字段路径。
-- [ ] 无变化不写；写前重读快照；同目录临时文件原子替换，清理自身临时文件。
-- [ ] 保持 BOM、EOL、frontmatter、手写前后缀；错误文件不写，独立文件继续处理。
-- [ ] 不宣称跨文件事务或跨进程锁；输入改变后两次命令独立重算。
-- [ ] update --check 只比较受管正文；MCP 用户服务定义不适用漂移判定。
-- [ ] 无可比较内容失败；手写变化无漂移；声明变化产生漂移。
-- [ ] 排除生成文件的目录树自引用，固定顺序，不加入时间戳或本机环境。
-- [ ] 独立 changes schema，JSON stdout 和退出码回归；版本 0.3.0、CHANGELOG。
-- [ ] Specification review -> 修复 -> quality review -> 修复 -> 本地阶段提交。
+- [x] 纯候选内容计算与磁盘写入分离，同一 FileChange 用于 dry-run/check/write。
+- [x] dry-run 无目录、临时文件或 mtime 变化；--diff 显式显示文本，MCP 仅字段路径。
+- [x] 无变化不写；写前重读快照；同目录临时文件原子替换，清理自身临时文件。
+- [x] 保持 BOM、EOL、frontmatter、手写前后缀；错误文件不写，独立文件继续处理。
+- [x] 不宣称跨文件事务或跨进程锁；输入改变后两次命令独立重算。
+- [x] update --check 只比较受管正文；MCP 用户服务定义不适用漂移判定。
+- [x] 无可比较内容失败；手写变化无漂移；声明变化产生漂移。
+- [x] 排除生成文件的目录树自引用，固定顺序，不加入时间戳或本机环境。
+- [x] 独立 changes schema，JSON stdout 和退出码回归；版本 0.3.0、CHANGELOG。
+- [x] Specification review -> 修复 -> quality review -> 修复 -> 本地阶段提交。
 
 ## Task 5 — 文档、演示、发布准备
 
@@ -122,3 +122,7 @@
 - Task 3 验收中：主线程复验 373 tests passed、Ruff check/format 和 diff check 通过；v0.2.0 wheel 在源码外独立安装后 smoke 通过；规格审查 APPROVED，质量审查进行中。
 
 - Task 3 收尾：规格与质量审查均 APPROVED；主线程 373 tests、Ruff check/format、diff check、v0.2.0 隔离 wheel 安装 smoke 通过。未公开发布该版本。
+
+- Task 4 验收中：主线程复验 411 tests passed、2 POSIX 权限用例在 Windows 跳过，Ruff check/format 与 diff check 通过。候选、预览、漂移与目录树稳定性规格审查 APPROVED；修复已有权限保留和 Windows 只读临时文件清理。修复前的 v0.3.0 预览阶段 wheel 安装 smoke 已通过，最终产物仍需重建验收。
+
+- Task 4 收尾：规格与质量审查均 APPROVED；主线程最新 411 tests passed、2 skipped，Ruff/diff 通过。实现者 Python 3.10 与 3.13 同样 411 passed、2 skipped；POSIX 实机验证仍待 CI。最终 wheel/sdist 在文档收尾后从最终提交重建。

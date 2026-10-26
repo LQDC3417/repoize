@@ -8,8 +8,9 @@ import click
 from rich.console import Console
 
 from .analyzer.project_analyzer import ProjectAnalysis, analyze_project
+from .changes import FileChange, change_report
 from .reporter.health_report import print_health_report
-from .targets import GENERATOR_MAP, TYPE_ALIASES, legacy_decision, normalize_types, safe_output_path
+from .targets import GENERATOR_MAP, OUTPUT_PATHS, TYPE_ALIASES, normalize_types, safe_output_path
 
 console = Console()
 error_console = Console(stderr=True)
@@ -34,80 +35,107 @@ def _load_generator(name: str, analysis: ProjectAnalysis, lang: str = "en") -> A
     return cls(analysis, lang=lang)
 
 
-def _analyze_and_report(project_path: Path, scan_env: bool) -> ProjectAnalysis:
-    """分析项目并打印健康报告。
+def _change_options(function):
+    """写入命令共用只读预览选项。"""
+    for option in (
+        click.option("--dry-run", is_flag=True, help="Preview changes without writing files or creating directories."),
+        click.option(
+            "--format",
+            "output_format",
+            default="terminal",
+            type=click.Choice(["terminal", "json"]),
+            help="Output format.",
+        ),
+        click.option(
+            "--diff", "show_diff", is_flag=True, help="Show text differences; requires --dry-run and terminal format."
+        ),
+    ):
+        function = option(function)
+    return function
 
-    Args:
-        project_path: 项目根目录路径
-        scan_env: 是否扫描环境变量
 
-    Returns:
-        项目分析结果
-    """
-    if scan_env:
-        console.print("[dim]📡 扫描开发环境...[/dim]")
-
-    analysis = analyze_project(project_path, scan_env=scan_env)
-    print_health_report(analysis, console)
-    return analysis
-
-
-def _generate_all_configs(
-    project_path: Path, analysis: ProjectAnalysis, force: bool, file_types: tuple[str, ...], lang: str = "en"
-) -> tuple[list[str], list[str], list[str]]:
-    """生成所有或指定的配置文件。
-
-    Args:
-        project_path: 项目根目录路径
-        analysis: 项目分析结果
-        force: 是否强制覆盖
-        file_types: 要生成的类型
-
-    Returns:
-        (生成的文件列表, 跳过的文件列表, 失败的文件列表)
-    """
-    console.print("\n[bold]⚙️  开始生成配置文件...[/bold]\n")
-    generated: list[str] = []
-    skipped: list[str] = []
-    failed: list[str] = []
-
-    for gen_name in normalize_types(file_types):
-        gen = _load_generator(gen_name, analysis, lang)
+def _run_changes(path, file_types, lang, force, mode, dry_run, output_format, show_diff, check_only=False):
+    """一次分析、一次候选计算；检查、预览和应用共享同一结果。"""
+    if show_diff and (not dry_run or output_format == "json"):
+        raise click.UsageError("--diff requires --dry-run and --format terminal")
+    if check_only and dry_run:
+        raise click.UsageError("--check and --dry-run are mutually exclusive")
+    root = Path(path).absolute()
+    changes = []
+    try:
+        analysis = analyze_project(root, scan_env=False)
+    except (OSError, ValueError, RuntimeError, RecursionError):
+        analysis = None
+    selected = normalize_types(file_types) if file_types else tuple(GENERATOR_MAP)
+    for kind in selected:
+        if analysis is None:
+            changes.append(FileChange(kind, OUTPUT_PATHS[kind], "error", "analysis_failed"))
+            continue
+        gen = _load_generator(kind, analysis, lang)
         try:
-            output_path = safe_output_path(project_path, gen.output_filename)
-            warning = legacy_decision(project_path, gen.output_filename)
-            if warning:
-                error_console.print(f"  [yellow]⚠️  {warning}[/yellow]")
-            gen.validate_existing(output_path)
-            if output_path.exists() and not force:
-                skipped.append(gen.output_filename)
-                console.print(f"  [yellow]⏭  跳过 {gen.output_filename}（已存在）[/yellow]")
+            safe_output_path(root, gen.output_filename)
+        except (OSError, ValueError, RuntimeError):
+            changes.append(FileChange(kind, gen.output_filename, "error", "invalid_path"))
+            continue
+        try:
+            change = gen.plan(root, mode=mode, force=force)
+        except FileNotFoundError:
+            if mode == "update" and not file_types:
                 continue
-            gen.write(project_path, force=force)
-            generated.append(gen.output_filename)
-            console.print(f"  [green]✅ 生成 {gen.output_filename}[/green]")
-        except (OSError, ValueError) as e:
-            failed.append(gen.output_filename)
-            error_console.print(f"  [red]❌ 生成 {gen.output_filename} 失败: {e}[/red]")
-
-    return generated, skipped, failed
-
-
-def _print_generation_summary(generated: list[str], skipped: list[str], failed: list[str]) -> None:
-    """打印生成结果汇总。
-
-    Args:
-        generated: 生成的文件列表
-        skipped: 跳过的文件列表
-        failed: 失败的文件列表
-    """
-    if failed:
-        error_console.print(f"\n[bold red]❌ 生成 {len(generated)} 个文件，失败 {len(failed)} 个[/bold red]")
+            change = FileChange(kind, gen.output_filename, "error", "missing_target")
+        except (OSError, ValueError, RuntimeError, RecursionError) as error:
+            conflict = isinstance(error, ValueError) and "marker" in str(error)
+            change = FileChange(
+                kind,
+                gen.output_filename,
+                "conflict" if conflict else "error",
+                "managed_conflict" if conflict else ("migration_required" if "迁移" in str(error) else "invalid_file"),
+            )
+        change.type = kind
+        if check_only and kind == "mcp" and change.action not in {"error", "conflict"}:
+            change.action, change.reason = "skip", "not_comparable"
+        changes.append(change)
+    if not dry_run and not check_only:
+        for change in changes:
+            if change.action not in {"create", "update", "unchanged"}:
+                continue
+            try:
+                change.apply(root)
+            except (OSError, ValueError, RuntimeError):
+                change.action, change.reason = "error", "apply_failed"
+    report_mode = "check" if check_only else ("dry-run" if dry_run else "apply")
+    report = change_report(report_mode, changes)
+    for change in changes:
+        if change.warning:
+            click.echo("WARNING Legacy MCP configuration coexists; manual migration required.", err=True)
+    if output_format == "json":
+        click.echo(json.dumps(report, ensure_ascii=False, indent=2))
     else:
-        console.print(f"\n[bold green]✅ 完成！生成 {len(generated)} 个文件[/bold green]")
-    if skipped:
-        console.print(f"[yellow]⏭  跳过 {len(skipped)} 个已存在文件（使用 --force 覆盖）[/yellow]")
-    if failed:
+        for change in changes:
+            click.echo(
+                f"{change.action.upper()} {change.path}: {change.reason}", err=change.action in {"error", "conflict"}
+            )
+            if change.reason == "missing_target":
+                click.echo(f"Run repoize generate --type {change.type} first.", err=True)
+            if show_diff:
+                difference = change.diff()
+                if difference:
+                    click.echo(difference)
+        click.echo(
+            f"Changes: {len(changes)} target(s), {report['summary']['error']} error(s), {report['summary']['conflict']} conflict(s)."
+        )
+    errors = [change for change in changes if change.action == "error"]
+    conflicts = any(change.action == "conflict" for change in changes)
+    if check_only:
+        if any(change.reason == "invalid_path" for change in errors):
+            raise click.exceptions.Exit(2)
+        if errors:
+            raise click.exceptions.Exit(3)
+        if conflicts or any(change.comparable and change.action == "update" for change in changes):
+            raise click.exceptions.Exit(1)
+        if not any(change.comparable for change in changes):
+            raise click.exceptions.Exit(3)
+    elif errors or conflicts:
         raise click.exceptions.Exit(1)
 
 
@@ -132,14 +160,10 @@ def main() -> None:
 )
 @click.option("--force", is_flag=True, help="Replace selected existing configurations.")
 @click.option("--no-env", is_flag=True, help="Compatibility option; environment scanning is off by default.")
-def init(path: str, file_types: tuple[str, ...], lang: str, force: bool, no_env: bool) -> None:
+@_change_options
+def init(path, file_types, lang, force, no_env, dry_run, output_format, show_diff):
     """默认仅生成 AGENTS.md，显式类型追加到默认目标。"""
-    project_path = Path(path).absolute()
-    console.print(f"[bold blue]🔍 正在扫描项目:[/bold blue] {project_path}")
-    analysis = _analyze_and_report(project_path, scan_env=False)
-    selected = normalize_types(("agents", *file_types))
-    generated, skipped, failed = _generate_all_configs(project_path, analysis, force, selected, lang)
-    _print_generation_summary(generated, skipped, failed)
+    _run_changes(path, normalize_types(("agents", *file_types)), lang, force, "init", dry_run, output_format, show_diff)
 
 
 @main.command()
@@ -196,23 +220,14 @@ def analyze(path: str, output_format: str, output_file: str | None, no_env: bool
     "--lang", default="en", type=click.Choice(["en", "zh"]), show_default=True, help="Language of generated content."
 )
 @click.option("--force", is_flag=True, help="Replace selected existing configurations.")
-@click.option("--no-env", is_flag=True, help="跳过环境变量扫描")
-def generate(path: str, file_types: tuple[str, ...], lang: str, force: bool, no_env: bool) -> None:
+@click.option("--no-env", is_flag=True, help="Compatibility option; environment scanning is off by default.")
+@_change_options
+def generate(path, file_types, lang, force, no_env, dry_run, output_format, show_diff):
     """选择性生成指定类型的配置文件。"""
     if not file_types:
-        console.print("[red]请至少指定一个文件类型，例如: --type agents --type mcp[/red]")
-        console.print("\n可用类型:")
-        for name in GENERATOR_MAP:
-            console.print(f"  - {name}")
-        raise SystemExit(1)
-
-    project_path = Path(path).absolute()
-    console.print(f"[bold blue]⚙️  正在生成配置:[/bold blue] {', '.join(file_types)}")
-
-    analysis = analyze_project(project_path, scan_env=False)
-
-    generated, skipped, failed = _generate_all_configs(project_path, analysis, force, file_types, lang)
-    _print_generation_summary(generated, skipped, failed)
+        click.echo("Select at least one configuration type with --type.", err=True)
+        raise click.exceptions.Exit(1)
+    _run_changes(path, file_types, lang, force, "generate", dry_run, output_format, show_diff)
 
 
 @main.command(help="Update existing supported targets while preserving handwritten content.")
@@ -228,50 +243,13 @@ def generate(path: str, file_types: tuple[str, ...], lang: str, force: bool, no_
 @click.option(
     "--lang", default="en", type=click.Choice(["en", "zh"]), show_default=True, help="Language of generated content."
 )
-def update(path: str, file_types: tuple[str, ...], lang: str, no_env: bool) -> None:
+@click.option(
+    "--check", "check_only", is_flag=True, help="Check managed text drift without writing; MCP is not comparable."
+)
+@_change_options
+def update(path, file_types, lang, no_env, check_only, dry_run, output_format, show_diff):
     """增量更新已生成配置，保留手写内容。"""
-    project_path = Path(path).absolute()
-    console.print(f"[bold blue]🔄 正在更新配置:[/bold blue] {project_path}")
-
-    analysis = analyze_project(project_path, scan_env=False)
-    selected_types = normalize_types(file_types) if file_types else tuple(GENERATOR_MAP)
-    updated: list[str] = []
-    skipped: list[str] = []
-    failed: list[str] = []
-
-    for gen_name in selected_types:
-        gen = _load_generator(gen_name, analysis, lang)
-        output_path = project_path / gen.output_filename
-
-        try:
-            output_path = safe_output_path(project_path, gen.output_filename)
-            warning = legacy_decision(project_path, gen.output_filename)
-            if warning:
-                error_console.print(f"  [yellow]⚠️  {warning}[/yellow]")
-            if not output_path.exists():
-                if file_types:
-                    raise ValueError(f"目标不存在，请先运行 repoize generate --type {gen_name}")
-                continue
-
-            result = gen.update(project_path)
-            if result is None:
-                skipped.append(gen.output_filename)
-                console.print(f"  [yellow]⏭  跳过 {gen.output_filename}（无 managed marker）[/yellow]")
-            else:
-                updated.append(gen.output_filename)
-                console.print(f"  [green]✅ 更新 {gen.output_filename}[/green]")
-        except (OSError, ValueError) as e:
-            failed.append(gen.output_filename)
-            error_console.print(f"  [red]❌ 更新 {gen.output_filename} 失败: {e}[/red]")
-
-    if failed:
-        error_console.print(f"\n[bold red]❌ 更新 {len(updated)} 个文件，失败 {len(failed)} 个[/bold red]")
-    else:
-        console.print(f"\n[bold green]✅ 完成！更新 {len(updated)} 个文件[/bold green]")
-    if skipped:
-        console.print(f"[yellow]⏭  跳过 {len(skipped)} 个未管理的已有文件[/yellow]")
-    if failed:
-        raise click.exceptions.Exit(1)
+    _run_changes(path, file_types, lang, False, "update", dry_run, output_format, show_diff, check_only)
 
 
 @main.command()

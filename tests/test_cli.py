@@ -96,14 +96,14 @@ def test_generate_missing_types(runner, sample_project):
     """测试 generate 命令缺少类型参数。"""
     result = runner.invoke(main, ["generate", str(sample_project)])
     assert result.exit_code == 1
-    assert "请至少指定一个文件类型" in result.output
+    assert "Select at least one configuration type" in result.output
 
 
 def test_generate_with_type(runner, sample_project):
     """测试 generate 命令指定类型。"""
     result = runner.invoke(main, ["generate", str(sample_project), "--type", "agents", "--no-env"])
     assert result.exit_code == 0
-    assert "✅ 生成 AGENTS.md" in result.output
+    assert "CREATE AGENTS.md" in result.output
 
 
 def test_check_command(runner, sample_project):
@@ -157,7 +157,7 @@ def test_write_failure_returns_error_and_continues(runner, sample_project, comma
 
     assert result.exit_code == 1
     assert "AGENTS.md" in result.stderr
-    assert "失败 1" in result.output
+    assert "1 error(s)" in result.output
     assert (sample_project / "CLAUDE.md").is_file()
 
 

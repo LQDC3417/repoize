@@ -1,9 +1,22 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.3.0] - Unreleased
+
+### Added
+
+- Shared pure change candidates for `init`, `generate`, and `update`, with `--dry-run`, versioned JSON reports and explicit terminal-only `--diff`.
+- Read-only `update --check` for managed text drift; existing MCP definitions are not comparable.
+- Per-file atomic replacements with path and byte-snapshot revalidation; unchanged files retain their mtimes.
+
+### Fixed
+
+- Generated directory trees omit fixed outputs and otherwise empty output ancestors, preventing immediate self-drift.
+- MCP previews expose fixed field paths only; format errors never reveal configuration values and force does not bypass protection.
 
 ## [0.2.0] - Unreleased
 

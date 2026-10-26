@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "repoize"
-version = "0.2.0"
+version = "0.3.0"
 description = "Generate evidence-based project instructions for AI coding agents"
 readme = "README.md"
 license = "MIT"

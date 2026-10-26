@@ -179,7 +179,7 @@ def test_legacy_only_is_blocked_and_other_types_continue(tmp_path, command, forc
         )
     result = CliRunner().invoke(main, args)
     assert result.exit_code == 1, result.output
-    assert "迁移" in result.output
+    assert "migration_required" in result.output
     assert not (tmp_path / modern).exists()
     assert old.read_text(encoding="utf-8") == "legacy"
     assert (tmp_path / "AGENTS.md").is_file()
@@ -200,7 +200,7 @@ def test_mcp_coexistence_preserves_new_and_warns(tmp_path, command):
     args.extend(["--type", "mcp"])
     result = CliRunner().invoke(main, args)
     assert result.exit_code == 0, result.output
-    assert "并存" in result.output
+    assert "coexists" in result.output
     if command == "update":
         assert modern.read_text(encoding="utf-8") == original
     else:
@@ -298,7 +298,7 @@ def test_cursor_coexistence_is_blocked(tmp_path, analysis, command):
     args.extend(["--type", "cursorrules"])
     result = CliRunner().invoke(main, args)
     assert result.exit_code == 1
-    assert "迁移" in result.output
+    assert "migration_required" in result.output
     assert output.read_bytes() == original
 
 
@@ -371,7 +371,7 @@ def test_wrapped_skill_is_not_silently_skipped(tmp_path, analysis, command):
     args.extend(["--type", "skill"])
     result = CliRunner().invoke(main, args)
     assert result.exit_code == 1
-    assert "迁移" in result.output
+    assert "migration_required" in result.output
     assert output.read_text(encoding="utf-8") == original
 
 
@@ -430,8 +430,8 @@ def test_mcp_coexistence_without_force_warns_and_skips(tmp_path, analysis, comma
     args.extend(["--type", "mcp"])
     result = CliRunner().invoke(main, args)
     assert result.exit_code == 0, result.output
-    assert "并存" in result.output
-    assert "跳过 .mcp.json" in result.output
+    assert "coexists" in result.output
+    assert "SKIP .mcp.json" in result.output
     assert modern.read_text(encoding="utf-8") == original
     with pytest.raises(FileExistsError):
         McpConfigGenerator(analysis).write(tmp_path)

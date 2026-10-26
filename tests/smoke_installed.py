@@ -6,7 +6,10 @@ import subprocess
 import sysconfig
 import tempfile
 from importlib.metadata import version
+from importlib.resources import files
 from pathlib import Path
+
+import jsonschema
 
 OUTPUT_FILES = (
     "AGENTS.md",
@@ -42,7 +45,13 @@ def main() -> None:
             )
 
         assert run("--version").stdout.strip().endswith(version("repoize"))
+        preview = json.loads(run("init", "--dry-run", "--format", "json").stdout)
+        schema = json.loads(files("repoize").joinpath("schemas/changes.schema.json").read_text(encoding="utf-8"))
+        jsonschema.validate(preview, schema)
+        assert preview["summary"]["create"] == 1
+        assert not (project / "AGENTS.md").exists()
         run("init")
+        run("update", "--check")
         assert (project / "AGENTS.md").is_file()
         assert all(not (project / name).exists() for name in OUTPUT_FILES[1:])
         run(
@@ -61,6 +70,14 @@ def main() -> None:
             "skill",
         )
         assert all((project / name).is_file() for name in OUTPUT_FILES)
+        run("update", "--check")
+        doctor = json.loads(run("doctor", "--format", "json").stdout)
+        doctor_schema = json.loads(files("repoize").joinpath("schemas/doctor.schema.json").read_text(encoding="utf-8"))
+        jsonschema.validate(doctor, doctor_schema)
+        assert doctor["summary"]["errors"] == 0
+        checked = json.loads(run("update", "--check", "--format", "json").stdout)
+        jsonschema.validate(checked, schema)
+        assert next(change for change in checked["changes"] if change["type"] == "mcp")["reason"] == "not_comparable"
         assert json.loads((project / ".mcp.json").read_text(encoding="utf-8")) == {"mcpServers": {}}
         assert not (project / ".claude/mcp.json").exists()
         assert not (project / ".cursorrules").exists()
@@ -83,13 +100,25 @@ def main() -> None:
         prefix = "# 手写前言\n".encode()
         suffix = "\n# 手写尾部\n".encode()
         agents.write_bytes(prefix + agents.read_bytes() + suffix)
-        # 第一次更新纳入新生成的目录；第二次应不再改变文件。
+        run("update", "--check")
         run("update", "--no-env")
         before = {name: (project / name).read_bytes() for name in OUTPUT_FILES}
         run("update", "--no-env")
         assert before == {name: (project / name).read_bytes() for name in OUTPUT_FILES}
         assert agents.read_bytes().startswith(prefix)
         assert agents.read_bytes().endswith(suffix)
+        (project / "new-module.py").write_text("pass\n", encoding="utf-8")
+        drift = subprocess.run(
+            [str(cli), "update", "--check", "--format", "json"],
+            cwd=project,
+            env=env,
+            encoding="utf-8",
+            capture_output=True,
+        )
+        assert drift.returncode == 1, drift.stderr
+        assert json.loads(drift.stdout)["summary"]["update"] > 0
+        run("update")
+        run("update", "--check")
 
     print("Installed package smoke checks passed.")
 

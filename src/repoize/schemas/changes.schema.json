@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Repoize change report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_type",
+    "schema_version",
+    "mode",
+    "changes",
+    "summary"
+  ],
+  "properties": {
+    "report_type": {
+      "const": "changes"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "mode": {
+      "enum": [
+        "apply",
+        "dry-run",
+        "check"
+      ]
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "path",
+          "action",
+          "reason",
+          "field_paths"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "agents",
+              "claude",
+              "cursor",
+              "copilot",
+              "mcp",
+              "skill"
+            ]
+          },
+          "path": {
+            "enum": [
+              "AGENTS.md",
+              "CLAUDE.md",
+              ".cursor/rules/repoize.mdc",
+              ".github/copilot-instructions.md",
+              ".mcp.json",
+              ".claude/skills/project-dev/SKILL.md"
+            ]
+          },
+          "action": {
+            "enum": [
+              "create",
+              "update",
+              "unchanged",
+              "skip",
+              "conflict",
+              "error"
+            ]
+          },
+          "reason": {
+            "enum": [
+              "existing",
+              "unmanaged",
+              "current",
+              "missing",
+              "content_changed",
+              "invalid_path",
+              "missing_target",
+              "managed_conflict",
+              "invalid_file",
+              "analysis_failed",
+              "migration_required",
+              "apply_failed",
+              "not_comparable"
+            ]
+          },
+          "field_paths": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "$",
+                "mcpServers"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "create",
+        "update",
+        "unchanged",
+        "skip",
+        "conflict",
+        "error"
+      ],
+      "properties": {
+        "create": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "update": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unchanged": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skip": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "conflict": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "error": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

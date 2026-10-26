@@ -32,14 +32,14 @@ def test_init_default_only_agents(tmp_path):
 def test_init_explicit_types_add_to_agents_and_deduplicate(tmp_path):
     result = invoke(tmp_path, "init", "--type", "claude", "--type", "cursor", "--type", "cursorrules")
     assert result.exit_code == 0, result.output
-    assert "生成 3 个文件" in result.output
+    assert "Changes: 3 target(s)" in result.output
     assert all((tmp_path / TARGETS[kind]).is_file() for kind in ("agents", "claude", "cursor"))
 
 
 def test_generate_only_selected_and_alias_deduplicates(tmp_path):
     result = invoke(tmp_path, "generate", "--type", "cursor", "--type", "cursorrules", "--force")
     assert result.exit_code == 0, result.output
-    assert "生成 1 个文件" in result.output
+    assert "Changes: 1 target(s)" in result.output
     assert not (tmp_path / "AGENTS.md").exists()
 
 
@@ -74,7 +74,7 @@ def test_update_discovers_legacy_and_ignores_custom_targets(tmp_path):
     (tmp_path / ".cursorrules").write_text("legacy", encoding="utf-8")
     result = invoke(tmp_path, "update")
     assert result.exit_code == 1
-    assert "迁移" in result.output
+    assert "migration_required" in result.output
 
 
 @pytest.mark.parametrize("command", ["init", "generate", "update"])
@@ -147,7 +147,7 @@ def test_init_explicit_all_types_creates_six_targets(tmp_path):
         args.extend(["--type", kind])
     result = invoke(tmp_path, *args)
     assert result.exit_code == 0, result.output
-    assert "生成 6 个文件" in result.output
+    assert "Changes: 6 target(s)" in result.output
     assert all((tmp_path / target).is_file() for target in TARGETS.values())
 
 

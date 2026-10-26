@@ -13,6 +13,15 @@ GENERATOR_MAP: dict[str, tuple[str, str]] = {
     "skill": ("generator.skill_md", "SkillMdGenerator"),
 }
 
+OUTPUT_PATHS = {
+    "agents": "AGENTS.md",
+    "claude": "CLAUDE.md",
+    "cursor": ".cursor/rules/repoize.mdc",
+    "copilot": ".github/copilot-instructions.md",
+    "mcp": ".mcp.json",
+    "skill": ".claude/skills/project-dev/SKILL.md",
+}
+
 TYPE_ALIASES = {"cursorrules": "cursor"}
 
 
@@ -57,6 +66,8 @@ def safe_output_path(project_path: Path, filename: str) -> Path:
     if not root.is_dir():
         raise ValueError("项目路径必须是目录")
     for current in (root, *(root.joinpath(*relative.parts[:i]) for i in range(1, len(relative.parts) + 1))):
+        if current != output and current.exists() and not current.is_dir():
+            raise ValueError("输出路径的父级必须是目录")
         if current.is_symlink():
             raise ValueError(f"拒绝写入符号链接: {current}")
         if current.exists() and getattr(current.lstat(), "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT:
