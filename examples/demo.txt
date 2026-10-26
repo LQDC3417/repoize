@@ -1,0 +1,141 @@
+$ repoize --version
+repoize, version 0.3.0
+[exit 0]
+
+$ repoize analyze
+📊 正在分析项目: <demo>
+
+┌───────────────────────────────── 📊 项目健康度报告 ─────────────────────────────────┐
+│ python-fixture                                                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+
+语言: Python (主)
+
+语言画像: Python
+框架: pytest
+
+配置覆盖参考: 未配置 (0/100)
+工程配置参考: 95/100
+以上分数仅供参考，不验证格式有效性、代码质量或客户端加载情况。
+
+┌─────────────────────────────────┬───────────┬──────────────────────┐
+│ 配置文件                        │   状态    │ 说明                 │
+├─────────────────────────────────┼───────────┼──────────────────────┤
+│ AGENTS.md                       │ ❌ 未配置 │ 通用 Agent 指令      │
+│ CLAUDE.md                       │ ❌ 未配置 │ Claude Code 专属指令 │
+│ .cursorrules                    │ ❌ 未配置 │ Cursor AI 规则       │
+│ .github/copilot-instructions.md │ ❌ 未配置 │ GitHub Copilot 指令  │
+│ .claude/settings.json           │ ❌ 未配置 │ Claude Code 设置     │
+│ .claude/mcp.json                │ ❌ 未配置 │ Claude MCP 配置      │
+│ .mcp.json                       │ ❌ 未配置 │ Claude MCP 配置      │
+│ mcp.json                        │ ❌ 未配置 │ 通用 MCP 配置        │
+│ claude_desktop_config.json      │ ❌ 未配置 │ Claude Desktop MCP   │
+│ SKILL.md                        │ ❌ 未配置 │ 项目 Skill 文件      │
+│ .windsurfrules                  │ ❌ 未配置 │ Windsurf 规则        │
+│ .clinerules                     │ ❌ 未配置 │ Cline 规则           │
+└─────────────────────────────────┴───────────┴──────────────────────┘
+
+代码统计:
+  文件数: 2
+  总行数: 23
+  代码行: 14
+  注释行: 0
+  空行: 9
+  质量工具: pytest
+  质量配置: pyproject.toml
+
+测试: ✅ 检测到 (pytest)
+CI/CD: ⚠️  未检测到
+
+常用命令:
+  测试: pytest
+  检查: ruff check .
+  格式: ruff format .
+[exit 0]
+
+$ repoize init --dry-run
+CREATE AGENTS.md: missing
+Changes: 1 target(s), 0 error(s), 0 conflict(s).
+[exit 0]
+
+$ repoize init
+CREATE AGENTS.md: missing
+Changes: 1 target(s), 0 error(s), 0 conflict(s).
+[exit 0]
+
+$ repoize doctor --type agents
+INFO CMD001 type=project -: Command has only default suggestions and was not executed.
+  Evidence: build: python -m build
+  Fix: Verify the project declaration before using this command.
+INFO CMD001 type=project -: Command has only default suggestions and was not executed.
+  Evidence: format: ruff format .
+  Fix: Verify the project declaration before using this command.
+INFO CMD001 type=project -: Command has only default suggestions and was not executed.
+  Evidence: lint: ruff check .
+  Fix: Verify the project declaration before using this command.
+Command evidence:
+  build: python -m build (verification=not_run)
+    kind=suggested path=- selector=profile:Python
+  format: ruff format . (verification=not_run)
+    kind=suggested path=- selector=profile:Python
+  lint: ruff check . (verification=not_run)
+    kind=suggested path=- selector=profile:Python
+  run: greet (verification=not_run)
+    kind=declared path=pyproject.toml selector=project.scripts.greet
+  setup: pip install -e ".[dev]" (verification=not_run)
+    kind=inferred path=pyproject.toml selector=project.optional-dependencies.dev
+  test: pytest (verification=not_run)
+    kind=inferred path=pyproject.toml selector=project.optional-dependencies.dev
+    kind=inferred path=pyproject.toml selector=tool.pytest
+Checked 1 configuration file(s): 0 error(s), 0 warning(s).
+Local formats only; client loading, command execution, and network access were not checked.
+[exit 0]
+
+# Edit AGENTS.md: prepend a handwritten Team note.
+# Edit pyproject.toml: rename the declared entry point greet to hello.
+
+$ repoize update --check --type agents
+UPDATE AGENTS.md: content_changed
+Changes: 1 target(s), 0 error(s), 0 conflict(s).
+[exit 1]
+
+$ repoize update --type agents --dry-run --diff
+UPDATE AGENTS.md: content_changed
+--- AGENTS.md
++++ AGENTS.md
+@@ -41,9 +41,9 @@
+ ### Run
+
+
+
+ ```bash
+
+-greet
+
++hello
+
+ ```
+
+-Sources: declared — pyproject.toml · project.scripts.greet
+
++Sources: declared — pyproject.toml · project.scripts.hello
+
+
+
+
+
+ ## Directory structure
+
+
+Changes: 1 target(s), 0 error(s), 0 conflict(s).
+[exit 0]
+
+$ repoize update --type agents
+UPDATE AGENTS.md: content_changed
+Changes: 1 target(s), 0 error(s), 0 conflict(s).
+[exit 0]
+
+$ repoize update --check --type agents
+UNCHANGED AGENTS.md: current
+Changes: 1 target(s), 0 error(s), 0 conflict(s).
+[exit 0]

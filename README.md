@@ -1,220 +1,134 @@
-﻿<div align="center">
+# Repoize
 
-# 🤖 Repoize
+**Repository facts for AI coding tools.**
 
-**一条命令让任何项目对 AI Agent 友好**
+Generate `AGENTS.md` and selected tool configurations from repository evidence. Inspect problems and command sources, preview updates, and preserve handwritten instructions.
 
-[![PyPI version](https://img.shields.io/pypi/v/repoize.svg)](https://pypi.org/project/repoize/)
-[![Python Versions](https://img.shields.io/pypi/pyversions/repoize.svg)](https://pypi.org/project/repoize/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Downloads](https://static.pepy.tech/badge/repoize)](https://pepy.tech/project/repoize)
+[中文](README.zh-CN.md) · [Examples](examples/README.md) · [Support](docs/support.md) · [Migration](docs/migration.md) · [Contributing](CONTRIBUTING.md)
 
-[English](#english) | [中文](#中文)
+[![PyPI](https://img.shields.io/pypi/v/repoize.svg)](https://pypi.org/project/repoize/)
+[![Python](https://img.shields.io/pypi/pyversions/repoize.svg)](https://pypi.org/project/repoize/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-</div>
+> This README describes the **0.3.0 development source**. The published PyPI package was still **0.1.0** when checked on 2026-10-26 and does not contain the new commands below. Use source installation to try this roadmap; check the [releases](https://github.com/LQDC3417/repoize/releases) before choosing a package version.
 
----
+## Try it on an existing repository
 
-<a name="中文"></a>
-## 🚀 一键生成 AI Agent 配置文件
-
-自动生成 [AGENTS.md](https://docs.github.com/en/copilot/customizing-copilot/adding-repository-custom-instructions-for-github-copilot)、`CLAUDE.md`、`.cursorrules`、MCP Server 配置、Skill 文件，让 Claude Code、Cursor、Copilot 等 AI 编程助手立即理解你的项目。
-
-### ✨ 特性
-
-- 🔍 **智能分析** — 自动检测语言、框架、依赖、构建命令
-- 📊 **代码质量** — 分析代码质量，检测质量工具和配置
-- 🔄 **增量更新** — 保留手写内容，只更新生成区间
-- 🛡️ **隐私安全** — 纯本地分析，自动过滤敏感环境变量
-- 🌐 **多语言支持** — Python、JavaScript、TypeScript、Go、Rust、Java、Ruby、PHP
-
-### 📦 安装
+Requires Python 3.10+ and Git for source installation. Use a Python virtual environment or an isolated tool installer.
 
 ```bash
-pip install repoize
+python -m pip install "git+https://github.com/LQDC3417/repoize.git"
+
+# Read-only: inspect configurations and command evidence.
+repoize doctor /path/to/project
+
+# Read-only: review the planned default output.
+repoize init /path/to/project --dry-run
+
+# Create AGENTS.md; existing files are skipped.
+repoize init /path/to/project
 ```
 
-### 🎯 快速开始
+With [uv](https://docs.astral.sh/uv/) already installed, run the source without a permanent tool installation:
 
 ```bash
-# 一键扫描 + 生成所有配置文件
-repoize init
-
-# 查看项目分析报告（含代码质量分析）
-repoize analyze
-
-# 选择性生成配置文件
-repoize generate --type agents --type claude --type cursorrules
-
-# 检查项目 Agent 就绪度
-repoize check
-
-# 增量更新配置
-repoize update
+uvx --from "git+https://github.com/LQDC3417/repoize.git" repoize doctor /path/to/project
 ```
 
-### 📋 支持的配置文件
+For the published stable package, use `python -m pip install repoize` and consult that version's `--help`; available commands may differ.
 
-| 配置文件 | 用途 |
-|---------|------|
-| `AGENTS.md` | 通用 Agent 指令 |
-| `CLAUDE.md` | Claude Code 专属指令 |
-| `.cursorrules` | Cursor AI 规则 |
-| `.github/copilot-instructions.md` | GitHub Copilot 指令 |
-| `.claude/mcp.json` | MCP Server 配置 |
-| `.claude/skills/*/SKILL.md` | 项目专属 Skill 文件 |
+## What you get
 
-### 📊 代码质量分析
+- **Evidence before instructions.** Commands distinguish declarations, configuration-based inference, and generic suggestions. Extraction does not mean execution or success.
+- **Specific diagnostics.** Findings identify a rule, file, evidence, and next step. A Cursor-only repository does not need Claude, MCP, or Skill files to pass its selected checks.
+- **Reviewable maintenance.** Preview the same candidate content used for writing. Normal updates preserve handwritten text and existing frontmatter; unchanged files are not rewritten.
+- **Small defaults.** `init` creates `AGENTS.md`. MCP and Skill are opt-in. Default operations do not scan local environment variables, run project scripts, upload code, or call an LLM.
 
-Repoize 不仅生成配置文件，还能分析项目的代码质量：
+See the [recorded local workflow](examples/README.md) for real generated English/Chinese files and an update that keeps a handwritten note.
 
-```
-代码质量: 优秀 (100/100)
-
-代码统计:
-  文件数: 39
-  总行数: 3,668
-  代码行: 2,929
-  质量工具: pytest, ruff
-  质量配置: pyproject.toml
-```
-
-### 🔧 高级用法
+## Select the output
 
 ```bash
-# 输出 JSON 格式的分析结果
-repoize analyze --format json --output analysis.json
+# AGENTS.md plus Claude instructions.
+repoize init /path/to/project --type claude
 
-# 校验 JSON 输出是否符合 Schema
+# Exactly the selected types.
+repoize generate /path/to/project --type cursor --type copilot
+
+# Chinese content; use the same language on later updates.
+repoize init /path/to/project --lang zh
+
+# Optional MCP scaffold and project Skill.
+repoize generate /path/to/project --type mcp --type skill
+```
+
+| Type | Generated path |
+| --- | --- |
+| `agents` | `AGENTS.md` |
+| `claude` | `CLAUDE.md` |
+| `cursor` | `.cursor/rules/repoize.mdc` |
+| `copilot` | `.github/copilot-instructions.md` |
+| `mcp` | `.mcp.json` |
+| `skill` | `.claude/skills/project-dev/SKILL.md` |
+
+`cursorrules` remains an alias for `cursor`. Legacy paths are detected, not moved automatically. Read [manual migration](docs/migration.md) before changing an existing setup.
+
+MCP generation creates an empty `mcpServers` object. It does not choose, install, or start servers. An empty scaffold is reported as not yet configured. See the [MCP example](examples/mcp/README.md) before adding a server yourself.
+
+## Inspect and update
+
+```bash
+repoize doctor /path/to/project --type cursor --strict
+repoize doctor /path/to/project --format json
+repoize update /path/to/project --dry-run
+repoize update /path/to/project --dry-run --diff
+repoize update /path/to/project
+repoize update /path/to/project --check
+```
+
+Normal updates affect existing files at the generated paths listed above, not missing targets or arbitrary custom rules. Doctor can inspect additional supported rule/skill files without making them Repoize-owned. Text outside Repoize's markers and existing frontmatter remain user-owned. Invalid files, broken markers, legacy conflicts, and unsafe paths are reported rather than silently overwritten.
+
+`--force` on generation replaces the entire valid current target, including handwritten content or MCP server definitions. Preview that replacement with `--force --dry-run`. Force does not bypass migration and path protections.
+
+Text diffs are explicit because existing files can contain private content. MCP previews show field paths rather than secret values. A later command recalculates its preview; it is not a saved approval transaction.
+
+Drift checks compare managed text, not handwritten edits or user-owned MCP definitions. No comparable managed content means the check cannot pass. See the [CI example](docs/ci.md) for language selection and exit statuses.
+
+## Analysis and JSON
+
+```bash
+repoize analyze /path/to/project
+repoize analyze /path/to/project --format json --output analysis.json
 repoize validate analysis.json
-
-# 跳过环境变量扫描
-repoize analyze --no-env
-
-# 强制覆盖已有文件
-repoize init --force
+# Explicit platform/tool versions; no environment variable values.
+repoize analyze /path/to/project --include-env
 ```
 
-### 脚本集成与安全更新（v0.1.1）
+Analysis JSON v1 remains compatible with `validate`. Doctor and change reports have separate schemas. JSON stdout contains data only; status messages go to stderr. Analysis reports still include project paths: review before sharing.
 
-- `analyze --format json` 的标准输出只包含 JSON；状态提示写入标准错误。使用 `--output` 时，JSON 写入文件，标准输出为空。
-- `init`、`generate`、`update` 全部成功或正常跳过时返回 `0`；任一文件处理失败时返回 `1`，并继续处理其他文件。`html` 格式尚未实现，会返回参数错误。
-- `update` 保留文本生成区间外的手写内容和换行；相同分析结果重复更新不会增加空行。
-- MCP JSON 更新补充缺失项，已有同名字段优先保留，冲突时提示；无效 JSON 会报错并保留原文件。需要完全重新生成时，使用 `generate --type mcp --force`，这会覆盖整个 MCP 文件。
+See [command evidence and diagnostic rules](docs/command-evidence.md) for source kinds, extraction limits, and rule IDs.
 
-### 📁 示例输出
+`check` remains the older coverage report, not a CI gate. Scores reflect detected setup, not code correctness, client loading, or model compliance. Use `doctor` for concrete findings and `update --check` for drift.
 
-运行 `repoize analyze` 后的输出示例：
+## When Repoize fits
 
-```
-┌───────────────────────────── 📊 项目健康度报告 ─────────────────────────────┐
-│ my-project                                                                  │
-└─────────────────────────────────────────────────────────────────────────────┘
+Use Repoize to extract an existing repository's development facts and maintain generated context as the repository changes.
 
-语言: Python (主)
-语言画像: Python
-框架: fastapi, sqlalchemy
+For distributing already-authored shared rules, also consider [Rulesync](https://github.com/dyoshikawa/rulesync) and [Ruler](https://github.com/intellectronica/ruler). For packing source code into an LLM context, see [Repomix](https://github.com/yamadashy/repomix) and [Gitingest](https://github.com/coderamp-labs/gitingest). These workflows can complement Repoize.
 
-Agent 就绪度: 完备 (100/100)
-代码质量: 优秀 (85/100)
+Profiles cover Python, JavaScript, TypeScript, Go, Rust, Java, Ruby, and PHP, not every build system or framework. [Support details](docs/support.md) distinguish format checks from actual client tests.
 
-┌─────────────────────────────────────┬───────────┬──────────────────────┐
-│ 配置文件                            │   状态    │ 说明                 │
-├─────────────────────────────────────┼───────────┼──────────────────────┤
-│ AGENTS.md                           │ ✅ 已配置 │ 通用 Agent 指令      │
-│ CLAUDE.md                           │ ❌ 未配置 │ Claude Code 专属指令 │
-│ .cursorrules                        │ ❌ 未配置 │ Cursor AI 规则       │
-└─────────────────────────────────────┴───────────┴──────────────────────┘
-```
-
-### 🛠️ 开发
+## Development and feedback
 
 ```bash
-# 克隆仓库
 git clone https://github.com/LQDC3417/repoize.git
 cd repoize
-
-# 安装开发依赖
-pip install -e ".[dev]"
-
-# 运行测试
-pytest
-
-# 代码检查
-ruff check src/ tests/
-ruff format --check src/ tests/
+python -m pip install -e ".[dev]"
+python -m pytest
+python -m ruff check src/ tests/ scripts/
+python -m ruff format --check src/ tests/ scripts/
 ```
 
-### 📄 License
+Useful contributions: a minimal misidentified manifest, a command-source regression, or a client-discovery record. Use a small public/redacted fixture; do not upload tokens or proprietary instructions. See [contributing](CONTRIBUTING.md), [the roadmap](docs/superpowers/plans/2026-10-26-repoize-roadmap.md), and [release preparation](docs/releasing.md).
 
-MIT License - 详见 [LICENSE](LICENSE) 文件
-
----
-
-<a name="english"></a>
-## 🚀 Make Any Project AI Agent Friendly
-
-Auto-generate [AGENTS.md](https://docs.github.com/en/copilot/customizing-copilot/adding-repository-custom-instructions-for-github-copilot), `CLAUDE.md`, `.cursorrules`, MCP Server config, and Skill files to help Claude Code, Cursor, Copilot and other AI coding assistants understand your project instantly.
-
-### ✨ Features
-
-- 🔍 **Smart Analysis** — Auto-detect languages, frameworks, dependencies, and build commands
-- 📊 **Code Quality** — Analyze code quality, detect quality tools and configurations
-- 🔄 **Incremental Updates** — Preserve handwritten content, only update generated sections
-- 🛡️ **Privacy Safe** — Pure local analysis, auto-filter sensitive environment variables
-- 🌐 **Multi-language** — Python, JavaScript, TypeScript, Go, Rust, Java, Ruby, PHP
-
-### 📦 Installation
-
-```bash
-pip install repoize
-```
-
-### 🎯 Quick Start
-
-```bash
-# Scan + generate all config files
-repoize init
-
-# View project analysis report (with code quality)
-repoize analyze
-
-# Generate specific config files
-repoize generate --type agents --type claude --type cursorrules
-
-# Check project agent readiness
-repoize check
-
-# Incremental update
-repoize update
-```
-
-### 📋 Supported Config Files
-
-| Config File | Purpose |
-|-------------|---------|
-| `AGENTS.md` | General Agent instructions |
-| `CLAUDE.md` | Claude Code specific instructions |
-| `.cursorrules` | Cursor AI rules |
-| `.github/copilot-instructions.md` | GitHub Copilot instructions |
-| `.claude/mcp.json` | MCP Server config |
-| `.claude/skills/*/SKILL.md` | Project-specific Skill files |
-
-### 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details
-
-### Scripting and safe updates (v0.1.1)
-
-- `analyze --format json` writes only JSON to stdout and status messages to stderr. With `--output`, the JSON is written to the file and stdout stays empty.
-- `init`, `generate`, and `update` return `0` on success or normal skips, and `1` if any file fails; other files are still processed. The unavailable `html` format returns a usage error.
-- Text updates preserve content and line endings outside the generated markers. Repeating an update with the same analysis does not add blank lines.
-- MCP updates add missing fields and keep existing values, warning on conflicts. Invalid JSON is reported without overwriting the file. To regenerate the entire MCP file, use `generate --type mcp --force`; this replaces its existing contents.
-
----
-
-<div align="center">
-
-**[⬆ Back to top](#🤖-repoize)**
-
-</div>
+MIT license. See [LICENSE](LICENSE).

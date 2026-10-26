@@ -95,16 +95,16 @@
 
 ## Task 5 — 文档、演示、发布准备
 
-- [ ] 英文 README、完整 README.zh-CN.md：定位、只读入口、真实样例、保护规则、支持矩阵、升级与故障说明。
-- [ ] Python/TypeScript/Go 可复制样例；记录固定输入的真实输出，短终端演示，不含个人环境。
-- [ ] 手动迁移指南、命令来源说明、CI 示例、贡献指南、具体 issue 模板。
-- [ ] 支持表区分格式测试和客户端实测，未测明确写未验证。
-- [ ] 开发依赖补 Ruff，干净环境能运行 README 开发步骤。
-- [ ] 标签/源码/包版本一致门禁；同提交构建 wheel/sdist 和校验值，供人工发布。
-- [ ] 不自动执行 PyPI/GitHub Release/标签/topics 更新；保留准确的发布清单。
-- [ ] 不伪造客户端加载、用户试点、star 增长或发布结果；5–8 人试点作为后续人类活动。
-- [ ] 最终 spec/quality review；全量测试、Ruff、Python3.10/3.13 隔离安装及 CLI 冒烟。
-- [ ] 交付改动、验证结果、未测范围和必要风险；提交/推送遵循已有用户授权，公开发布另需授权。
+- [x] 英文 README、完整 README.zh-CN.md：定位、只读入口、真实样例、保护规则、支持矩阵、升级与故障说明。
+- [x] Python/TypeScript/Go 可复制样例；记录固定输入的真实输出，短终端演示，不含个人环境。
+- [x] 手动迁移指南、命令来源说明、CI 示例、贡献指南、具体 issue 模板。
+- [x] 支持表区分格式测试和客户端实测，未测明确写未验证。
+- [x] 开发依赖补 Ruff，干净环境能运行 README 开发步骤。
+- [x] 标签/源码/包版本一致门禁；同提交构建 wheel/sdist 和校验值，供人工发布。
+- [x] 不自动执行 PyPI/GitHub Release/标签/topics 更新；保留准确的发布清单。
+- [x] 不伪造客户端加载、用户试点、star 增长或发布结果；5–8 人试点作为后续人类活动。
+- [x] 最终 spec/quality review；全量测试、Ruff、Python3.10/3.13 隔离安装及 CLI 冒烟。
+- [x] 交付改动、验证结果、未测范围和必要风险；提交/推送遵循已有用户授权，公开发布另需授权。
 
 ## 非本轮范围
 
@@ -126,3 +126,7 @@
 - Task 4 验收中：主线程复验 411 tests passed、2 POSIX 权限用例在 Windows 跳过，Ruff check/format 与 diff check 通过。候选、预览、漂移与目录树稳定性规格审查 APPROVED；修复已有权限保留和 Windows 只读临时文件清理。修复前的 v0.3.0 预览阶段 wheel 安装 smoke 已通过，最终产物仍需重建验收。
 
 - Task 4 收尾：规格与质量审查均 APPROVED；主线程最新 411 tests passed、2 skipped，Ruff/diff 通过。实现者 Python 3.10 与 3.13 同样 411 passed、2 skipped；POSIX 实机验证仍待 CI。最终 wheel/sdist 在文档收尾后从最终提交重建。
+
+- Task 5 验收中：双语文档、真实 Python/TypeScript/Go 演示、版本与产物校验、CI/发布门禁完成，规格审查 APPROVED。主线程 Windows Python 3.10/3.13 各 427 passed、2 POSIX skipped；Ruff check/format 49 文件与 diff check 通过；113 个相对链接（28 份新增/修改 Markdown）、工作流 YAML、Issue frontmatter 检查通过。实现者 exact probe wheel 在外部 Python 3.13.5 安装 smoke 通过；主线程另以 Python 3.10.20 外部安装同批 wheel，smoke 通过。最终干净提交产物、远程源码安装和推送后 CI 仍在收尾步骤。
+
+- Task 5 收尾：规格审查与最终质量/集成审查均 APPROVED；本机双版本完整测试、Ruff、链接、YAML 与独立安装探针均通过。最终 wheel/sdist 从干净提交构建并在工作区外保留；main 快进推送后复验远程源码安装与 CI 实际状态。既有配置不自动迁移，客户端加载、POSIX 实机、用户试用和公开发包不冒充已经完成。
