@@ -451,3 +451,38 @@ def test_root_link_is_still_a_path_parameter_error(tmp_path):
     except OSError:
         pytest.skip("Cannot create symbolic links")
     assert invoke(link).exit_code == 2
+
+
+@pytest.mark.parametrize(
+    "filename,kind", [(".cursor/rules/demo.mdc", "cursor"), (".claude/skills/demo/SKILL.md", "skill")]
+)
+@pytest.mark.parametrize("selection", [(), ("--type",)])
+@pytest.mark.parametrize("target_kind", ["internal", "external", "missing"])
+def test_nested_file_links_are_diagnosed_without_reading_targets(
+    tmp_path, monkeypatch, filename, kind, selection, target_kind
+):
+    """严格诊断保留链接条目并报 CFG003，自动发现和显式类型行为一致。"""
+    write(tmp_path, "AGENTS.md", "text")
+    target = tmp_path.parent / f"{tmp_path.name}-outside.txt" if target_kind == "external" else tmp_path / "source.txt"
+    if target_kind != "missing":
+        target.write_text("secret-test-value", encoding="utf-8")
+    link = tmp_path / filename
+    link.parent.mkdir(parents=True)
+    try:
+        link.symlink_to(target)
+    except OSError:
+        pytest.skip("此环境不能创建符号链接")
+    original = Path.read_text
+
+    def guarded(self, *args, **kwargs):
+        assert self.resolve() != target
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", guarded)
+    options = (*selection, kind) if selection else ()
+    result = invoke(tmp_path, "--strict", *options)
+    assert result.exit_code == 1, result.output
+    report = json.loads(result.stdout)
+    assert any(item["rule_id"] == "CFG003" and item["path"] == filename for item in report["findings"])
+    assert not any(item["rule_id"] == "CFG001" for item in report["findings"])
+    assert "secret-test-value" not in result.output

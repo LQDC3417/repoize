@@ -1,11 +1,11 @@
 ---
-name: git-proj
+name: project-dev
 description: |-
-  项目 git_proj 的开发指南。包含构建、测试、部署的标准流程和编码规范。
+  在本仓库开发 Repoize、修改配置生成与诊断逻辑、运行测试和代码检查时使用。
 license: MIT
 ---
 
-# git_proj 开发指南
+# repoize 开发指南
 
 ## 快速开始
 
@@ -17,7 +17,8 @@ pip install -e ".[dev]"
 pytest
 
 # 代码检查
-# 未检测到 lint 工具
+python -m ruff check src/ tests/ scripts/
+python -m ruff format --check src/ tests/ scripts/
 ```
 
 

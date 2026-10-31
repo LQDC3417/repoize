@@ -1,4 +1,9 @@
-﻿# git_proj — Cursor Rules
+---
+description: Repoize 项目开发约定
+alwaysApply: true
+---
+
+# repoize — Cursor Rules
 
 # 项目概述
 语言: Python

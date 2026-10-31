@@ -1,10 +1,10 @@
 # CLAUDE.md — Claude Code 项目指令
 
-> 本文件由 [repoize](https://github.com/LQDC3417/repoize) 自动生成。Claude Code 会自动读取此文件。
+> 本文件由 [repoize](https://github.com/LQDC3417/repoize) 初始生成，现由项目维护者维护，供 Claude Code 使用。
 
 ## 项目信息
 
-- 项目名: git_proj
+- 项目名: repoize
 - 主语言: Python
 
 ## 技术栈
@@ -28,30 +28,9 @@ pytest
 
 ## 开发环境
 
-| 工具 | 版本 |
-|------|------|
-| Python | Python 3.13.5 |
-| Python3 | Python 3.13.12 |
-| Node.js | v24.14.1 |
-| npm | 11.11.0 |
-| bun | 1.3.14 |
-| Rust (rustc) | rustc 1.96.0 (ac68faa20 2026-05-25) |
-| Cargo | cargo 1.96.0 (30a34c682 2026-05-25) |
-| Git | git version 2.45.1.windows.1 |
-| uv | uv 0.11.14 (3fdfdc7d4 2026-05-12 x86_64-pc-windows-msvc) |
-| pip | pip 25.1 from D:\Program Files\Anaconda\Lib\site-packages\pip (python 3.13) |
-| conda | conda 25.7.0 |
-| mypy | mypy 1.14.1 (compiled: yes) |
-
-
-### 环境变量
-
-- `CONDA_DEFAULT_ENV`: `base`
-- `CONDA_PREFIX`: `D:\Program Files\Anaconda`
-- `CUDA_PATH`: `D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.1`
-- `PATH`: `C:\Users\Administrator\.codex\tmp\arg0\codex-arg0riXYp2;C:\Users\Administrator\.codex\packages\standalone\releases\0.144.3-x86_64-pc-windows-msvc\codex-path;D:\Program Files\Anaconda;D:\Program Files\...`
-- `PYTHONPATH`: `src`
-
+- 使用 Python 3.10 及以上虚拟环境；依赖和工具配置以 `pyproject.toml` 为准。
+- 安装、测试和代码检查步骤见 [贡献指南](CONTRIBUTING.zh-CN.md)。
+- 本机路径和环境变量由开发者自行配置，不写入共享项目指令。
 
 ## 编码规范
 

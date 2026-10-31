@@ -4,33 +4,18 @@ from __future__ import annotations
 
 import os
 import re
+from configparser import ConfigParser
+from configparser import Error as ConfigError
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..targets import safe_project_entry
+from .lang_detector import IGNORE_DIRS
 from .toml_utils import load_toml
 
 if TYPE_CHECKING:
     from .language_profiles import LanguageProfile
-
-# 忽略的目录和文件
-IGNORE_PATTERNS = {
-    "node_modules",
-    ".git",
-    "__pycache__",
-    ".venv",
-    "venv",
-    "dist",
-    "build",
-    ".next",
-    ".nuxt",
-    "target",
-    "vendor",
-    ".idea",
-    ".vscode",
-    ".DS_Store",
-    "Thumbs.db",
-}
 
 # 代码文件扩展名
 CODE_EXTENSIONS = {
@@ -140,40 +125,52 @@ def analyze_code_quality(
     return metrics
 
 
+def _walk_code_files(project_path: Path):
+    """质量分析统一跳过依赖目录、链接和非普通文件。"""
+    if not safe_project_entry(project_path, project_path):
+        return
+    for current, directories, filenames in os.walk(project_path, followlinks=False):
+        current_path = Path(current)
+        directories[:] = sorted(
+            name
+            for name in directories
+            if name not in IGNORE_DIRS
+            and (not name.startswith(".") or name == ".github")
+            and safe_project_entry(current_path / name, project_path)
+        )
+        for name in sorted(filenames):
+            path = current_path / name
+            if (
+                not name.startswith(".")
+                and path.suffix in CODE_EXTENSIONS
+                and safe_project_entry(path, project_path)
+                and path.is_file()
+            ):
+                yield path
+
+
 def _count_files_and_lines(project_path: Path, metrics: CodeQualityMetrics) -> None:
     """统计文件数量和行数。"""
-    for root, dirs, files in os.walk(project_path):
-        # 过滤忽略的目录
-        dirs[:] = [d for d in dirs if d not in IGNORE_PATTERNS]
-
-        for file in files:
-            file_path = Path(root) / file
-            if file_path.suffix in CODE_EXTENSIONS:
-                metrics.total_files += 1
-
-                # 统计语言
-                lang = _get_language_from_extension(file_path.suffix)
-                metrics.files_by_language[lang] = metrics.files_by_language.get(lang, 0) + 1
-
-                # 统计行数
-                try:
-                    with open(file_path, encoding="utf-8", errors="ignore") as f:
-                        lines = f.readlines()
-                        total = len(lines)
-                        metrics.total_lines += total
-                        metrics.lines_by_language[lang] = metrics.lines_by_language.get(lang, 0) + total
-
-                        # 分类行数
-                        for line in lines:
-                            line = line.strip()
-                            if not line:
-                                metrics.blank_lines += 1
-                            elif line.startswith(("#", "//", "/*", "*", "<!--")):
-                                metrics.comment_lines += 1
-                            else:
-                                metrics.code_lines += 1
-                except (OSError, UnicodeDecodeError):
-                    pass
+    for file_path in _walk_code_files(project_path):
+        metrics.total_files += 1
+        lang = _get_language_from_extension(file_path.suffix)
+        metrics.files_by_language[lang] = metrics.files_by_language.get(lang, 0) + 1
+        try:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
+                lines = f.readlines()
+                total = len(lines)
+                metrics.total_lines += total
+                metrics.lines_by_language[lang] = metrics.lines_by_language.get(lang, 0) + total
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        metrics.blank_lines += 1
+                    elif line.startswith(("#", "//", "/*", "*", "<!--")):
+                        metrics.comment_lines += 1
+                    else:
+                        metrics.code_lines += 1
+        except (OSError, UnicodeDecodeError):
+            pass
 
 
 def _get_language_from_extension(ext: str) -> str:
@@ -238,7 +235,10 @@ def _detect_tools_from_dependencies(
 
 def _detect_tools_from_pyproject(project_path: Path) -> set[str]:
     """从 pyproject.toml 配置节检测质量工具。"""
-    tool_section = load_toml(project_path / "pyproject.toml").get("tool", {})
+    path = project_path / "pyproject.toml"
+    if not safe_project_entry(path, project_path) or not path.is_file():
+        return set()
+    tool_section = load_toml(path).get("tool", {})
     if not isinstance(tool_section, dict):
         return set()
     return {
@@ -246,6 +246,19 @@ def _detect_tools_from_pyproject(project_path: Path) -> set[str]:
         for tool_name in ["ruff", "mypy", "pytest", "black", "isort", "pylint", "flake8"]
         if isinstance(tool_section.get(tool_name), dict)
     }
+
+
+def _setup_cfg_sections(project_path: Path) -> set[str]:
+    """共享 INI 配置只采信真实配置节，禁用不必要的插值。"""
+    path = project_path / "setup.cfg"
+    if not safe_project_entry(path, project_path) or not path.is_file():
+        return set()
+    parser = ConfigParser(interpolation=None)
+    try:
+        parser.read_string(path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeError, ConfigError):
+        return set()
+    return set(parser.sections())
 
 
 def _detect_tools_from_config_files(project_path: Path) -> set[str]:
@@ -261,7 +274,6 @@ def _detect_tools_from_config_files(project_path: Path) -> set[str]:
         ".prettierrc.json": "prettier",
         ".prettierrc.yml": "prettier",
         ".flake8": "flake8",
-        "setup.cfg": "flake8",
         "tox.ini": "tox",
         ".pylintrc": "pylint",
         "mypy.ini": "mypy",
@@ -269,8 +281,11 @@ def _detect_tools_from_config_files(project_path: Path) -> set[str]:
     }
 
     for config_file, tool_name in config_tool_map.items():
-        if (project_path / config_file).exists():
+        path = project_path / config_file
+        if safe_project_entry(path, project_path) and path.is_file():
             tools.add(tool_name)
+    if "flake8" in _setup_cfg_sections(project_path):
+        tools.add("flake8")
     return tools
 
 
@@ -318,7 +333,14 @@ def _detect_quality_configs(project_path: Path, metrics: CodeQualityMetrics) -> 
     ]
 
     for config in quality_configs:
-        if (project_path / config).exists():
+        if config == "setup.cfg" and not any(
+            section in {"flake8", "tool:pytest", "mypy", "isort"}
+            or section.startswith(("coverage:", "mypy-", "pylint."))
+            for section in _setup_cfg_sections(project_path)
+        ):
+            continue
+        path = project_path / config
+        if safe_project_entry(path, project_path) and path.is_file():
             metrics.quality_config_found.append(config)
 
 
@@ -326,14 +348,9 @@ def _calculate_complexity(project_path: Path, metrics: CodeQualityMetrics) -> No
     """计算代码复杂度（简化版）。"""
     function_lengths: list[int] = []
 
-    for root, dirs, files in os.walk(project_path):
-        dirs[:] = [d for d in dirs if d not in IGNORE_PATTERNS]
-
-        for file in files:
-            file_path = Path(root) / file
-            if file_path.suffix in CODE_EXTENSIONS:
-                lengths = _extract_function_lengths(file_path)
-                function_lengths.extend(lengths)
+    for file_path in _walk_code_files(project_path):
+        lengths = _extract_function_lengths(file_path)
+        function_lengths.extend(lengths)
 
     if function_lengths:
         metrics.avg_function_length = sum(function_lengths) / len(function_lengths)
@@ -388,23 +405,18 @@ def _detect_duplicates(project_path: Path, metrics: CodeQualityMetrics) -> None:
 
     file_hashes: dict[str, list[Path]] = {}
 
-    for root, dirs, files in os.walk(project_path):
-        dirs[:] = [d for d in dirs if d not in IGNORE_PATTERNS]
-
-        for file in files:
-            file_path = Path(root) / file
-            if file_path.suffix in CODE_EXTENSIONS:
-                try:
-                    with open(file_path, encoding="utf-8", errors="ignore") as f:
-                        content = f.read()
-                        # 简单的哈希比较
-                        content_hash = hash(content)
-                        if content_hash in file_hashes:
-                            file_hashes[content_hash].append(file_path)
-                        else:
-                            file_hashes[content_hash] = [file_path]
-                except (OSError, UnicodeDecodeError):
-                    pass
+    for file_path in _walk_code_files(project_path):
+        try:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+                # 简单的哈希比较
+                content_hash = hash(content)
+                if content_hash in file_hashes:
+                    file_hashes[content_hash].append(file_path)
+                else:
+                    file_hashes[content_hash] = [file_path]
+        except (OSError, UnicodeDecodeError):
+            pass
 
     # 统计重复文件
     for _hash_val, files in file_hashes.items():

@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Quality analysis skips linked files, Windows junctions and dependency directories across statistics, complexity and duplicate checks; linked quality configurations are not read or counted.
+- Strict diagnostics report discovered Cursor/Skill file links, including broken links, as `CFG003` without reading their targets.
+- Flake8 detection in shared `setup.cfg` files requires a real `[flake8]` section; packaging metadata alone no longer raises the quality score.
 - Generated directory trees omit fixed outputs and otherwise empty output ancestors, preventing immediate self-drift.
 - Equal language counts and case-insensitive filename ties now use fixed ordering, avoiding traversal-dependent context changes between checkouts.
 - MCP previews expose fixed field paths only; format errors never reveal configuration values and force does not bypass protection.

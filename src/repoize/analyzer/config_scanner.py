@@ -94,6 +94,13 @@ def scan_existing_configs(project_path: Path, *, strict: bool = False) -> list[C
 def _is_config_file(path: Path, *, strict: bool) -> bool:
     """诊断模式保留元数据不可读的已知条目，稍后按单文件报错。"""
     try:
+        if strict:
+            metadata = path.lstat()
+            if (
+                stat.S_ISLNK(metadata.st_mode)
+                or getattr(metadata, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+            ):
+                return True
         return stat.S_ISREG(path.stat().st_mode)
     except FileNotFoundError:
         return False
@@ -122,7 +129,8 @@ def _config_files(directory: Path, root: Path, *, strict: bool = False):
             except OSError:
                 # 无法读取元数据不是缺失；交给单文件诊断处理，仍不读正文。
                 accepted = True
-            if accepted:
+            # 严格诊断只记录链接本身，交给 CFG003；不读取目标正文。
+            if accepted or strict:
                 yield path
 
 

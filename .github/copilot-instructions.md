@@ -1,4 +1,4 @@
-# git_proj — Copilot Instructions
+# repoize — Copilot Instructions
 
 > 本文件由 [repoize](https://github.com/LQDC3417/repoize) 自动生成。
 
@@ -19,4 +19,4 @@
 
 ## 提交前检查
 
-2. 运行 `pytest` 确保测试通过
+1. 运行 `pytest` 确保测试通过
